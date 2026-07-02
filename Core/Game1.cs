@@ -7,6 +7,7 @@ using AsepriteDotNet.Aseprite;
 using AsepriteDotNet.IO;
 using MonoGame.Aseprite;
 using SimplePlatformer.Core;
+using SimplePlatformer.Entities;
 
 namespace SimplePlatformer;
 
@@ -14,10 +15,10 @@ public class Game1 : Game
 {
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
-    private Sprite playerSprite;
     
     private RenderTarget2D _virtualRenderTarget;
     private Rectangle _screenScaleRectangle;
+    private Player _player;
     
     public Game1()
     {
@@ -59,6 +60,7 @@ public class Game1 : Game
         // TODO: Add your initialization logic here
         _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.VirtualWidth, GameSettings.VirtualHeight);
         UpdateScreenScale();
+        _player = new Player();
         base.Initialize();
     }
 
@@ -67,26 +69,21 @@ public class Game1 : Game
         InputHelper.Setup(this);
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-        // TODO: use this.Content to load your game content here
-        AsepriteFile playerAsepriteFile;
-        using Stream playerAsepriteStream = TitleContainer.OpenStream("Assets/player.aseprite");
-        {
-            playerAsepriteFile = AsepriteFileLoader.FromStream("player", playerAsepriteStream);    
-        }
-        
-        playerSprite = playerAsepriteFile.CreateSprite(GraphicsDevice, 0, options: null);
+        // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
+        _player.LoadContent("player", GraphicsDevice);
     }
 
     protected override void Update(GameTime gameTime)
     {
         InputHelper.UpdateSetup();
-
+        
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
             Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
-
-        // TODO: Add your update logic here
-
+        
+        _player.Update(deltaTime);
         base.Update(gameTime);
         InputHelper.UpdateCleanup();
     }
@@ -98,7 +95,7 @@ public class Game1 : Game
         GraphicsDevice.Clear(Color.CornflowerBlue);
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        _spriteBatch.Draw(playerSprite, new Vector2(10, 10));
+        _player.Draw(_spriteBatch);
         _spriteBatch.End();
         
         // PASS 2: Render that texture stretched onto the physical OS window

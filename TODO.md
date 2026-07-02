@@ -122,6 +122,22 @@ this milestone's real work hasn't started.
     `Entity` vs. composition — `Entities/Entity.cs` and `Player.cs` are empty
     on purpose. What state does *every* entity share?
   - Units: pixels/second? tiles/second? Pin this down early.
+  - **In progress (2026-07-02):** decided to go with an **abstract `Entity`
+    base class** (not composition) — discussed lifting `Position` and the
+    `Update`/`Draw` method signatures up from `Player`, and weighing
+    `abstract` vs `virtual` for `Update`/`Draw` (does shared logic like
+    gravity eventually belong in a `virtual` base implementation?). Also
+    flagged the Aseprite `LoadContent` pattern (stream → `AsepriteFileLoader`
+    → `CreateSprite`) as a candidate for a shared `protected` helper on
+    `Entity`, parameterized by file path. User is implementing directly —
+    revisit this note once `Entity`/`Player` are actually refactored.
+  - **Bug found same day:** `Player.Draw` was passing `position.Y` for both
+    X and Y (`new Vector2(position.Y, position.Y)`), and movement math used
+    `gameTime.ElapsedGameTime.Seconds` (an `int`, truncates to 0 most frames)
+    instead of `.TotalSeconds`/`(float)TotalSeconds` — root cause of "player
+    doesn't move." Also noticed `moveUpCondition` uses `.Held()` while the
+    other three directions use `.Pressed()` — worth confirming that's
+    intentional.
 
 ## Milestone 4 — Collision ⚠️ the classic bug factory
 
