@@ -2,6 +2,8 @@
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
         <RollForward>Major</RollForward>
         <PublishReadyToRun>false</PublishReadyToRun>
         <TieredCompilation>false</TieredCompilation>
@@ -27,5 +29,10 @@
         <PackageReference Include="MonoGame.Aseprite" Version="6.3.1" />
         <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
         <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
+    </ItemGroup>
+    <ItemGroup>
+        <None Update="Assets/**/*.aseprite">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 </Project>

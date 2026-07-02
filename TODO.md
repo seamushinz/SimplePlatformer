@@ -26,6 +26,9 @@ decide. That decision-making is a big part of the learning.
 
 ## Milestone 0 — Foundations & project hygiene ⚠️ do early
 
+**Status:** ✅ Done (2026-07-01) — `Nullable`/`ImplicitUsings` on, target
+framework confirmed as **net10.0** (csproj), timestep decided (see below).
+
 **Goal:** understand the loop you're building inside of, and lock in a couple
 of decisions that are annoying to change later.
 
@@ -43,8 +46,15 @@ of decisions that are annoying to change later.
     should agree).
   - Fixed or variable timestep? This affects how you'll write movement/physics
     later, so decide deliberately rather than by default.
+  - **Decided (2026-07-01):** variable timestep — `IsFixedTimeStep = false`,
+    v-sync also disabled (`SynchronizeWithVerticalRetrace = false`) in
+    `Game1`'s constructor. Movement code should integrate with
+    `GameTime.ElapsedGameTime` rather than assuming a fixed `dt`.
 
 ## Milestone 1 — Get a sprite on screen ⚠️ do early (scaling)
+
+**Status:** ✅ Done (2026-07-01) — virtual-resolution scaling and a real
+sprite render are both working.
 
 **Goal:** render pixel art correctly, at a resolution you control.
 
@@ -58,10 +68,32 @@ of decisions that are annoying to change later.
     nothing uses it): render to a low-res `RenderTarget2D` and scale up, or
     pass a scale matrix to `SpriteBatch.Begin`? Pick one and wire it up now —
     retrofitting a coordinate system after you have gameplay is miserable.
+  - **Decided (2026-07-01):** `RenderTarget2D` approach, not a scale matrix.
+    `GameSettings.VirtualWidth/Height` (now 400×300, not 800×600 as
+    originally noted here) define a low-res target; `Game1.Draw` renders the
+    world to it in pass 1, then stretches it into a letterboxed
+    `_screenScaleRectangle` on the real window in pass 2, recalculated on
+    resize via `OnWindowSizeChanged`/`UpdateScreenScale`. `PointClamp` is
+    used on both `SpriteBatch.Begin` calls to keep pixel art crisp.
   - Content pipeline vs. loading `.aseprite` files directly — when does each
     make sense?
+  - **Decided (2026-07-01), revised same day:** reversed course — going with
+    **direct runtime loading** (`AsepriteFile` via `TitleContainer.OpenStream`
+    + `AsepriteFileLoader.FromStream`), not the content pipeline/XNB route.
+    Simpler setup (no MGCB Editor wiring, no `nuget.config` workaround needed),
+    at the cost of the `.aseprite` file needing `CopyToOutputDirectory` set
+    per-file instead of going through `Content.mgcb`. Revisit this trade-off
+    again before Milestone 12 (template extraction) if the lack of pipeline
+    processing becomes annoying across projects.
 
 ## Milestone 2 — Input you can build on
+
+**Status:** 🔄 In progress — `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup`
+are wired into `Game1`'s lifecycle, but that's just Apos.Input's plumbing.
+No named actions (`jump`/`left`/`right`) exist yet, and `Game1.Update` still
+reads raw `Keyboard`/`GamePad` state directly (currently only for the
+Escape-to-quit check). `Managers/InputManager.cs` is still an empty stub —
+this milestone's real work hasn't started.
 
 **Goal:** turn raw key/pad state into meaningful, rebindable *actions*.
 
@@ -232,3 +264,54 @@ other, and the exact folder layout are **yours to design**. The current stubs
 (`Entity`/`Player`/`Enemy`/`Solid`, `InputManager`/`LevelManager`,
 `Camera`/`CollisionSystem`) are one plausible starting shape — restructure them
 the moment a different arrangement fits your mental model better.
+
+## Possible future project — custom cross-file texture atlas packer
+
+**Not a milestone — optional, post-template, "because it'd be cool" territory.**
+Came out of a discussion (2026-07-01) about texture atlases: `MonoGame.Aseprite`
+already packs each `.aseprite` file into its own atlas automatically
+(`TextureAtlas`/`SpriteSheet`), which is fine for a solo platformer. This is
+about going further than necessary, on purpose.
+
+**Goal:** one master atlas spanning *multiple* `.aseprite` source files (and
+maybe loose PNGs), auto-generated at build time, while still keeping
+`MonoGame.Aseprite`'s direct-`.aseprite`-loading workflow (no manual export
+step) and animation tag data intact.
+
+**Why this is nontrivial:** `MonoGame.Aseprite` is a translation layer over the
+lower-level `AsepriteDotNet` library, which does the actual file parsing. To
+combine multiple source files into one atlas, you'd bypass `MonoGame.Aseprite`'s
+per-file packing and instead:
+
+- Use `AsepriteDotNet` directly to read raw frame pixel data + animation tags
+  from each `.aseprite` file.
+- Feed all frames from all files into your own **bin-packing algorithm**
+  (MaxRects or a guillotine/skyline packer are the standard choices) to lay
+  them out on one shared texture.
+- Rebuild `MonoGame.Aseprite`-equivalent `TextureAtlas`/`SpriteSheet`/
+  `AnimationTag` objects yourself, pointing at regions in the combined texture
+  instead of per-file textures.
+- Likely wire this up as a custom **MGCB content pipeline processor**, so it
+  runs at build time like any other content import.
+
+**Alternative/simpler paths, for comparison (not the "weird and optimized"
+option, but worth knowing exist):**
+- Aseprite's own CLI batch mode (`--batch ... --sheet --data`) can pack
+  multiple `.aseprite` files into one PNG + JSON directly — but that means
+  giving up `MonoGame.Aseprite`'s direct-load workflow and writing/using a
+  different runtime loader.
+- [TexturePacker](https://www.codeandweb.com/texturepacker) +
+  [TexturePacker-MonoGameLoader](https://github.com/CodeAndWeb/TexturePacker-MonoGameLoader) —
+  mature external packer with an official MonoGame content-pipeline loader.
+- `MonoGame.Extended.Content.Pipeline` bundles its own texture-packer importer
+  alongside its other content types.
+
+**Decisions (when you actually get here):**
+- Which packing algorithm, and how much do you care about optimal packing
+  vs. simplicity of implementation?
+- Do you pack once at build time only, or support incremental repacking as
+  assets change during development?
+- Does this become a standalone reusable library (fits goal #2 — the
+  template), decoupled from this specific game?
+- How do you validate it's actually a win? (Profile draw calls/texture swaps
+  before and after — don't build this on faith.)

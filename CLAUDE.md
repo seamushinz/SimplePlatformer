@@ -34,6 +34,12 @@ finished game handed to them.
   where appropriate, etc.) and standard MonoGame/game-loop architecture
   (game loop separation, component/entity patterns, content pipeline usage,
   update/draw separation) as it becomes relevant to what they're building.
+- **File-editing scope:** Claude should only ever directly edit `CLAUDE.md`
+  and `TODO.md` in this repo. Adding a comment to an existing code file is
+  fine when it genuinely helps (a pointer, a breadcrumb, flagging a decision
+  point) — but Claude should not otherwise create or edit `.cs`/project
+  files. Actual implementation code is the user's to write, per the rule
+  above.
 
 ## Tech stack
 
@@ -41,14 +47,15 @@ finished game handed to them.
   `MonoGame.Content.Builder.Task` for the content pipeline (`.mgcb`).
 - **[MonoGame.Aseprite](https://github.com/AristurtleDev/monogame-aseprite)**
   (v6.3.1) — loads Aseprite `.aseprite`/`.ase` files directly for sprites,
-  animations, and tilemaps via the content pipeline.
+  animations, and tilemaps. Currently used via **direct runtime loading**
+  (`AsepriteFileLoader.FromStream`), not the content pipeline — see notes
+  below and `TODO.md` Milestone 1.
 - **[Apos.Input](https://github.com/Apostolique/Apos.Input)** (v2.5.0) —
   input handling abstraction (`InputHelper`, `Track`) layered over
   MonoGame's raw keyboard/mouse/gamepad state; supports input tracking,
   virtual buttons, and rebindable actions.
-- C# nullable/implicit usings are not yet configured in the csproj — worth
-  discussing with the user if it comes up (`<Nullable>enable</Nullable>`,
-  `<ImplicitUsings>enable</ImplicitUsings>` are common modern-C# defaults).
+- `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>`
+  are already set in the csproj.
 
 ### Other packages worth considering (suggest, don't add unprompted)
 
@@ -106,11 +113,28 @@ for discussion with the user rather than something to fill in unilaterally.
 
 ## Notes on current state
 
+*(Last updated 2026-07-01 — see `TODO.md` for the full milestone-by-milestone
+breakdown; this section is just a snapshot.)*
+
+- **Target framework confirmed:** `net10.0` (csproj and docs agree).
+  `Nullable`/`ImplicitUsings` are both enabled.
+- **Milestone 0 (Foundations) and Milestone 1 (Sprite on screen) are done.**
+  Milestone 2 (Input) is in progress; Milestones 3+ haven't started —
+  `Entities/`, `Managers/`, and `Systems/` are all still empty stub classes.
 - `Game1.cs` wires up `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup` from
-  Apos.Input, and has the standard MonoGame-template `TODO` comments in
-  `Initialize`, `LoadContent`, `Update`, `Draw` — this is template
-  boilerplate, not yet real game code.
-- `GameSettings` defines a virtual resolution (800x600) but nothing yet
-  reads or uses it (e.g. no scaling matrix/render target set up).
-- No content has been added to `Content/Content.mgcb` yet beyond the
-  default project scaffold.
+  Apos.Input (lifecycle plumbing only — no named actions yet), reads raw
+  `Keyboard`/`GamePad` state directly for Escape-to-quit, and runs a
+  two-pass `Draw`: the world renders to a low-res `RenderTarget2D`
+  (`GameSettings.VirtualWidth/Height`, now 400x300) with `PointClamp`
+  sampling, then that target is stretched into a letterboxed rectangle on
+  the real window, recalculated on resize.
+- `IsFixedTimeStep = false` (variable timestep) and v-sync are disabled —
+  decided deliberately in Milestone 0.
+- A player sprite loads from `Assets/player.aseprite` via **direct runtime
+  loading** (`AsepriteFileLoader.FromStream` + `TitleContainer.OpenStream`),
+  *not* the content pipeline — `.aseprite` files are copied to the output
+  directory via `CopyToOutputDirectory` in the csproj instead. This was a
+  deliberate reversal (see `TODO.md` Milestone 1) to skip MGCB Editor/
+  `nuget.config` setup; revisit before Milestone 12 (template extraction).
+- No content has been added to `Content/Content.mgcb` — the project isn't
+  using the content pipeline at all right now, per the above decision.
