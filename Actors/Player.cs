@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using SimplePlatformer.Core;
 using SimplePlatformer.Managers;
 
@@ -5,35 +6,37 @@ namespace SimplePlatformer.Entities;
 
 public class Player : Actor
 {
-    private float maxSpeed = 0.5f;
+    private float maxSpeed = 0.2f;
+    private float maxFallSpeed = 1f;
     private float acceleration = 0.01f;
+    private Vector2 velocity;
+    private bool onGround = true; 
 
     public Player()
     {
         spriteAssetName = "player";
     }
-    public override void Update(float deltaTime)
+    public void Update(float deltaTime)
     {
         //inputs
-        if (InputManager.jumpOrSelectCondition.Pressed())
+        if (InputManager.jumpOrSelectCondition.Pressed() && onGround)
         {
             // Handle jump or select action
+            velocity.Y -= acceleration*400;
+        }
+        //variable jump height
+        if (InputManager.jumpOrSelectCondition.Released() && !onGround && velocity.Y < 0)
+        {
+            // Handle jump or select action
+            velocity.Y = 0;
         }
         
         //inputs should zero out if opposite directions held
-        
-        if (InputManager.moveUpCondition.Held() && !InputManager.moveDownCondition.Held())
-        { 
-            velocity.Y -= acceleration * deltaTime;
-            velocity.Y = Math.Max(-maxSpeed, velocity.Y);
-        }
-
         if (InputManager.moveDownCondition.Held() && !InputManager.moveUpCondition.Held())
         {
             velocity.Y += acceleration * deltaTime;
-            velocity.Y = Math.Min(maxSpeed, velocity.Y);
+            velocity.Y = Math.Min(maxFallSpeed, velocity.Y);
         }
-        
 
         if (InputManager.moveLeftCondition.Held() && !InputManager.moveRightCondition.Held())
         {
@@ -49,18 +52,20 @@ public class Player : Actor
 
         if ((!InputManager.moveRightCondition.Held() && !InputManager.moveLeftCondition.Held()) || (InputManager.moveRightCondition.Held() && InputManager.moveLeftCondition.Held()))
         {
-            velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, (acceleration) * deltaTime);
+            velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, acceleration * deltaTime);
         }
-        if ((!InputManager.moveUpCondition.Held() && !InputManager.moveDownCondition.Held()) || (InputManager.moveUpCondition.Held() && InputManager.moveDownCondition.Held()))
+        
+        //gravity
+        if (!onGround)
         {
-            velocity.Y = GlobalFunctions.MoveTowards(velocity.Y, 0, (acceleration) * deltaTime);
+            velocity.Y += acceleration * deltaTime;
+            velocity.Y = Math.Min(maxFallSpeed, velocity.Y);
         }
-
-        Console.Out.WriteLine($"Player : {velocity.X}, {velocity.Y}");
-
+        
         //apply gravity and movement/collisions
-        base.Update(deltaTime);
+        MoveX(velocity.X * deltaTime, () => { velocity.X = 0;});
+        MoveY(velocity.Y * deltaTime, () => { velocity.Y = 0;});
+        
+        onGround = CollidesAt(0, 1);
     }
-    
-    
 }

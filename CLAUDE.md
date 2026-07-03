@@ -88,53 +88,52 @@ each one:
 ```
 Core/            Game bootstrap and global settings.
   Game1.cs         Main Game class: Initialize/LoadContent/Update/Draw.
+  Entity.cs        Base class: position, sprite, Bounds, Draw/LoadContent.
   GameSettings.cs  Static constants (virtual resolution, etc.).
-Entities/        Game objects that live in the world.
-  Entity.cs        Base entity (stub).
-  Player.cs        Player entity (stub).
-  Enemy.cs         Enemy entity (stub).
-  Solid.cs         Static/solid collision geometry (stub).
-Managers/        Longer-lived subsystems that manage state across frames.
-  InputManager.cs  Input handling wrapper (stub) — will likely sit atop Apos.Input.
-  LevelManager.cs  Level loading/transition management (stub).
-Systems/         Cross-cutting logic that operates over entities/state.
-  Camera.cs          Camera/viewport logic (stub).
-  CollisionSystem.cs Collision detection/resolution (stub).
-Content/         MonoGame content pipeline project (Content.mgcb) — sprites,
-                 fonts, levels, etc. get built through here or loaded
-                 directly via MonoGame.Aseprite.
+Actors/          Things that move and collide (Entity subclasses).
+  Actor.cs         Velocity + MoveX/MoveY collision resolution.
+  Player.cs        Player-specific input/movement.
+  Enemy.cs         Stub — not started.
+Solids/          Static collision geometry.
+  Solid.cs         Registers itself with CollisionSystem.
+Managers/
+  InputManager.cs  Named Apos.Input actions (jump/move up/down/left/right).
+  LevelManager.cs  Stub — not started.
+Systems/
+  Camera.cs          Stub — not started.
+  CollisionSystem.cs Static solids list + overlap queries.
+Content/         MonoGame content pipeline project — currently unused
+                 (sprites load directly from .aseprite files instead).
 Program.cs       Entry point — constructs and runs Game1.
 ```
 
-Everything under `Entities/`, `Managers/`, and `Systems/` is currently a
-stub (empty class body) — the architecture (what goes where, how these
-layers talk to each other) is intentionally undecided and is a good subject
-for discussion with the user rather than something to fill in unilaterally.
+`Enemy.cs`, `LevelManager.cs`, and `Camera.cs` are still empty stubs — everything
+else above has real implementation. See `TODO.md` for what's next.
 
 ## Notes on current state
 
-*(Last updated 2026-07-01 — see `TODO.md` for the full milestone-by-milestone
-breakdown; this section is just a snapshot.)*
+*(Last updated 2026-07-03 — see `TODO.md` for milestone-by-milestone detail.)*
 
-- **Target framework confirmed:** `net10.0` (csproj and docs agree).
-  `Nullable`/`ImplicitUsings` are both enabled.
-- **Milestone 0 (Foundations) and Milestone 1 (Sprite on screen) are done.**
-  Milestone 2 (Input) is in progress; Milestones 3+ haven't started —
-  `Entities/`, `Managers/`, and `Systems/` are all still empty stub classes.
-- `Game1.cs` wires up `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup` from
-  Apos.Input (lifecycle plumbing only — no named actions yet), reads raw
-  `Keyboard`/`GamePad` state directly for Escape-to-quit, and runs a
-  two-pass `Draw`: the world renders to a low-res `RenderTarget2D`
-  (`GameSettings.VirtualWidth/Height`, now 400x300) with `PointClamp`
-  sampling, then that target is stretched into a letterboxed rectangle on
-  the real window, recalculated on resize.
-- `IsFixedTimeStep = false` (variable timestep) and v-sync are disabled —
-  decided deliberately in Milestone 0.
-- A player sprite loads from `Assets/player.aseprite` via **direct runtime
-  loading** (`AsepriteFileLoader.FromStream` + `TitleContainer.OpenStream`),
-  *not* the content pipeline — `.aseprite` files are copied to the output
-  directory via `CopyToOutputDirectory` in the csproj instead. This was a
-  deliberate reversal (see `TODO.md` Milestone 1) to skip MGCB Editor/
-  `nuget.config` setup; revisit before Milestone 12 (template extraction).
-- No content has been added to `Content/Content.mgcb` — the project isn't
-  using the content pipeline at all right now, per the above decision.
+- **Done:** Milestone 0 (foundations), Milestone 1 (sprite on screen),
+  Milestone 2 (named input actions via Apos.Input).
+- **In progress:** Milestones 3 (player movement) and 4 (collision),
+  being built together. Velocity/acceleration/friction work. X/Y collision
+  resolution uses a Celeste-style integer-position-plus-remainder step loop
+  (`Actor.MoveX`/`MoveY`). Still missing: gravity, jump, and `IsGrounded`.
+  Movement is currently 8-directional (no gravity yet) — `Player` still
+  drives `velocity.Y` directly from up/down input.
+- **Key architecture decisions so far:**
+  - `Entity` (position/sprite/bounds) → `Actor : Entity` (velocity, move,
+    collision) and `Solid : Entity` (static geometry).
+  - `CollisionSystem` is a static list of solids with overlap queries only
+    — it doesn't move anything; `Actor` resolves its own movement against it.
+  - Positions are integer `Point`s with a float sub-pixel remainder banked
+    per-axis on `Actor` (fixed earlier jitter from float positions).
+  - Velocity is **px/ms** (the `deltaTime` passed into `Update` is
+    `TotalMilliseconds`), not px/second.
+- Rendering: two-pass draw — world renders to a low-res `RenderTarget2D`
+  with `PointClamp`, then stretches into a letterboxed rectangle, recalculated
+  on resize. `IsFixedTimeStep = false`, v-sync disabled.
+- Sprites load directly from `.aseprite` files at runtime
+  (`AsepriteFileLoader`), not through the content pipeline — revisit before
+  Milestone 12 (template extraction).

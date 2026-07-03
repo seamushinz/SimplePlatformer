@@ -88,182 +88,74 @@ sprite render are both working.
 
 ## Milestone 2 — Input you can build on
 
-**Status:** :emoji_1F504: In progress — `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup`
-are wired into `Game1`'s lifecycle, but that's just Apos.Input's plumbing.
-No named actions (`jump`/`left`/`right`) exist yet, and `Game1.Update` still
-reads raw `Keyboard`/`GamePad` state directly (currently only for the
-Escape-to-quit check). `Managers/InputManager.cs` is still an empty stub —
-this milestone's real work hasn't started.
+**Status:** :white_check_mark: Done (2026-07-02) — `Managers/InputManager.cs` defines named
+`ICondition`s (`jumpOrSelectCondition`, `moveUpCondition`/`Down`/`Left`/`Right`),
+each an `AnyCondition` combining keyboard + gamepad. Gameplay code reads these,
+not raw `Keyboard`/`GamePad` state.
 
 **Goal:** turn raw key/pad state into meaningful, rebindable *actions*.
 
-- **Learn:** **Apos.Input** — `InputHelper` is already wired in `Game1`
-  (`Setup`/`UpdateSetup`/`UpdateCleanup`). Learn `Track` conditions and
-  virtual buttons/`ICondition`, and the difference between *pressed this
-  frame* / *held* / *released* — this distinction matters a lot for jumping.
-- **Done when:** "jump", "left", "right" exist as named actions, not scattered
-  `Keyboard.GetState()` calls, and you can rebind one without touching gameplay
-  code.
-- **Decisions:** does `Managers/InputManager` own these action definitions, or
-  does Apos.Input's own abstraction already cover it? (Don't wrap a wrapper
-  without a reason — figure out what the manager would add.)
+- **Learn:** **Apos.Input** — `Track` conditions, virtual buttons/`ICondition`,
+  and *pressed this frame* vs. *held* vs. *released*.
+- **Decided:** `InputManager` owns the named conditions directly as static
+  fields — no extra wrapper layer on top of Apos.Input.
 
 ## Milestone 3 — A player that moves
 
+**Status:** :emoji_1F504: In progress — velocity/acceleration/friction all work; gravity
+and jump are the remaining piece.
+
 **Goal:** position + velocity + gravity, tuned to feel like a platformer.
 
-- **Learn:** integrating motion with `GameTime.ElapsedGameTime` (delta time),
-  acceleration/friction/terminal velocity, and why you multiply by `dt`. Basic
-  jump as an upward velocity impulse + gravity.
-- **Done when:** the player accelerates, has weight, jumps, and falls — and
-  *feels* deliberate, not floaty-by-accident.
-- **Decisions:**
-  - What's the shape of an entity? Fields vs. **properties**, a base
-    `Entity` vs. composition — `Entities/Entity.cs` and `Player.cs` are empty
-    on purpose. What state does *every* entity share?
-  - Units: pixels/second? tiles/second? Pin this down early.
-  - **In progress (2026-07-02):** decided to go with an **abstract `Entity`
-    base class** (not composition) — discussed lifting `Position` and the
-    `Update`/`Draw` method signatures up from `Player`, and weighing
-    `abstract` vs `virtual` for `Update`/`Draw` (does shared logic like
-    gravity eventually belong in a `virtual` base implementation?). Also
-    flagged the Aseprite `LoadContent` pattern (stream → `AsepriteFileLoader`
-    → `CreateSprite`) as a candidate for a shared `protected` helper on
-    `Entity`, parameterized by file path. User is implementing directly —
-    revisit this note once `Entity`/`Player` are actually refactored.
-  - **Bug found same day:** `Player.Draw` was passing `position.Y` for both
-    X and Y (`new Vector2(position.Y, position.Y)`), and movement math used
-    `gameTime.ElapsedGameTime.Seconds` (an `int`, truncates to 0 most frames)
-    instead of `.TotalSeconds`/`(float)TotalSeconds` — root cause of "player
-    doesn't move." Also noticed `moveUpCondition` uses `.Held()` while the
-    other three directions use `.Pressed()` — worth confirming that's
-    intentional.
-  - **Velocity/max-speed + ms review (2026-07-03):** `Game1` now feeds
-    `deltaTime = ElapsedGameTime.TotalMilliseconds`, and `Actor.Update` does
-    `MoveX(velocity * dt)` — so **velocity is defined as px/ms**. Four bugs
-    identified in `Player.Update`'s input block (user to fix, not Claude):
-    1. **Assignment vs accumulation** — lines use `velocity = …` where accel
-       needs `velocity += …` (velocity can never build up).
-    2. **`* deltaTime` scales the wrong operand** — dt is on the outside
-       scaling the whole clamped velocity; it should scale only the
-       *acceleration increment* (`velocity ± accel * dt`), with the clamp
-       applied *after*, un-scaled.
-    3. **Clamp direction inconsistent** — negative dirs (up/left) need
-       `Math.Max(-maxSpeed, …)` (floor); positive dirs (down/right) need
-       `Math.Min(maxSpeed, …)` (ceiling). Currently moveUp's `Min(maxSpeed…)`
-       is a no-op and moveLeft's `Min(-maxSpeed…)` snaps straight to max.
-    4. **Friction is frame-rate dependent** — the `MoveTowards(…, maxSpeed/4)`
-       decay removes a fixed chunk *per frame*; the max-delta arg needs
-       `* deltaTime`.
-  - **Units/ms follow-up:** constants `maxSpeed=2000`, `acceleration=1000`
-    were tuned for **seconds**; with px/ms they're ~1000× too fast. To stay
-    ms-native, scale velocity consts by /1000 (maxSpeed → ~2.0) and accel by
-    /1e6 (→ ~0.001). Alternative discussed: keep per-second constants and read
-    `TotalSeconds` once instead. **Decision pending** — pick one convention and
-    make velocity, acceleration, and friction all agree with it. Also flagged:
-    friction runs on the same frame as input accel (decay must be slower than
-    accel or max speed is never reached) — confirm that's intended.
-  - **Resolved (2026-07-03):** all four bugs above fixed by user — velocity now
-    accumulates (`+=`/`-=`), `dt` scales only the accel increment, clamp
-    directions correct, friction scaled by `dt` **and** gated behind "no
-    direction held" (clean fix for friction-fighting-input). Movement works.
-    Current tuning: `maxSpeed=0.5` (px/ms), `acceleration=0.025`. Chose
-    ms-native convention.
-  - **Remaining polish items (noted, not yet done):**
-    1. **Friction is per-input, not per-axis** — the line-47 guard skips
-       friction unless *nothing* is held, so holding one axis freezes decay on
-       the other (hold Right after tapping Down → Y coasts). Decay X and Y
-       independently.
-    2. **Diagonal speed ~41% fast** — each axis clamps to `maxSpeed`
-       independently (`√(0.5²+0.5²)≈0.707`). Mostly moot once Y becomes
-       gravity/jump.
-    3. **Accel is near-instant** — reaches `maxSpeed` in ~1–2 frames; widen the
-       `maxSpeed`:`acceleration` gap if a ramp/"weight" feel is wanted.
-    4. **Still top-down 8-dir** — up/down drive `velocity.Y` directly; replace
-       vertical input with gravity + jump impulse per Milestone 3 goal.
-    5. Remove the per-frame `Console.WriteLine` debug line.
+- **Learn:** integrating motion with delta time, acceleration/friction/terminal
+  velocity, and why you multiply by `dt`. Basic jump as an upward velocity
+  impulse + gravity.
+- **Done when:** the player accelerates, has weight, jumps, and falls.
+- **Decided:**
+  - Abstract `Entity` base class (not composition) — `Core/Entity.cs` holds
+    position/sprite/`Bounds`/`Draw`/`LoadContent`; `Actor : Entity` adds
+    velocity and movement.
+  - **Velocity is px/ms**, not px/second (`Game1` passes `TotalMilliseconds`
+    as `deltaTime`). Current tuning: `maxSpeed = 0.5`, `acceleration = 0.01`.
+- **Remaining work:**
+  1. Replace up/down input driving `velocity.Y` directly with real gravity +
+     a jump impulse (`jumpOrSelectCondition` is wired but currently a no-op).
+  2. Diagonal speed is ~41% too fast — each axis clamps to `maxSpeed`
+     independently. Likely moot once Y is gravity-driven instead of input-driven.
+  3. Remove the per-frame `Console.WriteLine` debug line in `Player.Update`.
 
 ## Milestone 4 — Collision :warning: the classic bug factory
 
+**Status:** :emoji_1F504: In progress — core resolution algorithm is implemented and
+working; grounded-check and cleanup remain.
+
 **Goal:** the player stands on ground and can't walk through walls.
 
-- **Learn:** **AABB** overlap tests (`Rectangle.Intersects`). The standard
-  platformer trick: **resolve one axis at a time** (move X → resolve X → move
-  Y → resolve Y) to avoid corner-snagging. Discrete vs. swept collision, and
-  when tunneling (fast objects passing through thin walls) starts to bite.
+- **Learn:** **AABB** overlap tests. The standard platformer trick: **resolve
+  one axis at a time** (move X → resolve X → move Y → resolve Y). Discrete vs.
+  swept collision and tunneling.
 - **Done when:** the player lands on solids, is blocked by walls, and you can
   reliably tell whether it's currently *grounded*.
-- **Decisions:**
-  - Who owns collision — a `Systems/CollisionSystem` that queries the world,
-    or does each entity resolve itself against a list of solids? (`Solid.cs`
-    and `CollisionSystem.cs` are stubs — this is a real architecture fork.)
-  - How is the world queried for nearby solids? (A flat list is *fine* to
-    start — don't build a spatial grid before you feel the pain.)
-  - One-way platforms now or later?
-  - **Decided (2026-07-02):** Actor/Solid split under a shared `Entity` base —
-    `Entity` (position/sprite/Draw/Bounds) → `Actor : Entity` (velocity,
-    physics, MoveX/MoveY resolution) and `Solid : Entity` (collision geometry,
-    no velocity). User restructured into `Core/Entity.cs`, `Actors/`, and
-    `Solids/` folders same day.
-  - **Decided (2026-07-02):** `CollisionSystem` is **static** (matches the
-    static `InputManager`) and is a *queryable database of solids only* —
-    `Add`/`Remove`/`Clear` + overlap queries. It does not move entities;
-    resolution lives in `Actor.MoveX`/`MoveY` (axis-separated: X fully
-    resolves before Y). Trade-offs acknowledged: hidden dependency, one world
-    at a time, and `Clear()` must be called on level load or stale solids
-    persist. Revisit static-ness at Milestone 12 (template).
-  - **Decided (2026-07-02):** positions stay **float** (`Vector2`); simulate
-    in floats, snap to ints only at boundaries — `(int)` casts in the computed
-    `Bounds` property, rounding at draw time. Int positions would truncate
-    sub-pixel per-frame movement (velocity × dt) to zero at low speeds under
-    the variable timestep. Sub-pixel remainder accumulation (Celeste-style)
-    deliberately deferred until jitter is actually observed.
-  - **Jitter observed (2026-07-03):** the deferred sub-pixel issue arrived —
-    pushing continuously against a wall makes the *drawn* sprite wobble 1px
-    while `Bounds` stays flush. Root cause: pushback is computed in int
-    (Rectangle) space but subtracted from the float `position`, so the
-    fractional part cycles frame-to-frame and rasterization rounds it
-    differently each frame. Plan: (a) refactor `MoveX`/`MoveY` pushback to use
-    static `Rectangle.Intersect(a, b)` overlap `Width`/`Height` ×
-    `Math.Sign(amount)` instead of manual edge math; (b) zero the sub-pixel
-    fraction on the resolved axis when snapping; (c) read the Celeste/
-    TowerFall physics article and decide whether full int-position + remainder
-    accumulation belongs in the template (Milestone 12 question).
-  - **Update (2026-07-03):** flush-snap fix (`Rectangle.Intersect` overlap +
-    zero sub-pixel fraction) implemented in `MoveX`/`MoveY` — fixed jitter on
-    solids' right/bottom edges but not left/top. Root cause: `(int)` truncation
-    in `Bounds` is directionally biased — sub-pixel penetration from the
-    right/bottom shifts `Bounds` immediately (detected every frame), while
-    from the left/top `Bounds` doesn't move until a full pixel accumulates
-    (creep → 1px pop). Aggravated by variable timestep + no v-sync (tiny
-    per-frame steps) and gravity re-accelerating from zero while grounded.
-    **Decision: adopt Celeste-style movement now** — per-axis float
-    `_remainder` banks fractions, position moves in whole pixels only,
-    stepping 1px at a time and testing `Bounds` shifted by `Sign(move)`
-    before each step (blocked → zero that axis's velocity, break). Deletes
-    the snap-out math entirely (never enter a solid), makes draw rounding
-    moot, prevents tunneling, and the 1px-shifted query doubles as
-    `IsGrounded`.
-  - **Progress (2026-07-03):** `_remainder` field added; `MoveX` converted to
-    bank → round → early-out → step-loop shape. Remaining: (a) the per-pixel
-    blocked check inside `MoveX`'s loop is still a comment; (b) a stray
-    pre-loop `FirstOverlap(Bounds)` call in `MoveX` is unused and should go;
-    (c) `MoveY` still holds the old snap-out code and — mid-surgery — never
-    applies `move` to `position.Y` at all (gravity will stall until it's
-    rewritten as the mirror of `MoveX`). Optional refinements discussed:
-    `CollidesAt(Point offset)` helper (+ `Shifted` extension method on
-    `Rectangle` — note MonoGame's built-in `Rectangle.Offset` mutates in
-    place/returns void, so calling it on the computed `Bounds` property
-    mutates a throwaway struct copy and does nothing), computed
-    `IsGrounded => CollidesAt(0,1)`, and an `Action? onCollide` callback
-    instead of hard-coded velocity zeroing.
-  - Architecture scaffolding comments added (2026-07-02) to
-    `Systems/CollisionSystem.cs`, `Solids/Solid.cs`, `Actors/Actor.cs`, and
-    `Core/Entity.cs` — suggested members/signatures live there. Also flagged
-    in comments: hitbox fields + `Bounds` belong on `Entity` (not `Solid`);
-    hitbox offset should be `Point`/ints not `Vector2`; `Actor.LoadContent`
-    duplicates `Entity.LoadContent` (could call `base.LoadContent`);
-    `spriteAssetName = null` violates nullable annotations.
+- **Decided:**
+  - `Actor`/`Solid` split under shared `Entity` base, in `Actors/` and
+    `Solids/` folders. `CollisionSystem` (`Systems/CollisionSystem.cs`) is a
+    **static**, queryable list of solids only (`Add`/`Remove`/`Clear` +
+    overlap queries) — it never moves anything itself.
+  - **Celeste/TowerFall-style movement**, adopted after float positions caused
+    visible 1px jitter against walls: positions are integer `Point`s, with a
+    per-axis float `_remainder` on `Actor` banking sub-pixel motion. Each
+    `MoveX`/`MoveY` call steps one whole pixel at a time, testing for a
+    collision (`CollidesAt`) before each step and zeroing velocity + stopping
+    if blocked. This makes tunneling impossible and removes the jitter
+    entirely (see [the article this is based on](https://maddymakesgames.com/articles/celeste_and_towerfall_physics/index.html)).
+- **Remaining work:**
+  1. No gravity yet, so "lands on a solid" isn't really testable — tied to
+     Milestone 3's gravity/jump work.
+  2. Add an `IsGrounded` check (`CollidesAt(0, 1)` shifted one pixel down is
+     the natural implementation, given `MoveX`/`MoveY` already work this way).
+  3. Consider an `Action? onCollide` callback instead of hard-coded velocity
+     zeroing in `MoveX`/`MoveY`, if/when something other than "stop" is needed
+     (e.g. one-way platforms, hazards).
 
 ## Milestone 5 — Levels & the world
 
@@ -384,10 +276,10 @@ this milestone's real work hasn't started.
 ## Deliberately left open
 
 Entity model (inheritance vs. composition/ECS-lite), how systems talk to each
-other, and the exact folder layout are **yours to design**. The current stubs
-(`Entity`/`Player`/`Enemy`/`Solid`, `InputManager`/`LevelManager`,
-`Camera`/`CollisionSystem`) are one plausible starting shape — restructure them
-the moment a different arrangement fits your mental model better.
+other, and the exact folder layout are **yours to design**. `Entity`/`Actor`/
+`Solid`/`CollisionSystem`/`InputManager` are real now, but still just one
+plausible shape — `Enemy`, `LevelManager`, and `Camera` are still stubs.
+Restructure any of it the moment a different arrangement fits better.
 
 ## Possible future project — custom cross-file texture atlas packer
 

@@ -7,14 +7,7 @@ namespace SimplePlatformer.Entities;
 //from: https://maddymakesgames.com/articles/celeste_and_towerfall_physics/index.html
 public abstract class Actor : Entity
 {
-    
-    public Vector2 velocity;
     private Vector2 _remainder;
-    public virtual void Update(float deltaTime)
-    {
-        MoveX(velocity.X * deltaTime);
-        MoveY(velocity.Y * deltaTime);
-    }
     
     /// <summary>
     /// Checks if Actor collides with a Solid at the shifted coordinates using Bounds
@@ -28,7 +21,7 @@ public abstract class Actor : Entity
     /// Moves this entity on the X-axis by the specified amount, checking for collisions with solids.
     /// </summary>
     /// <param name="amount">amount to move, should be input as multiplied by deltaTime</param>
-    protected virtual void MoveX(float amount)
+    protected virtual void MoveX(float amount, Action? onCollide = null)
     {
         _remainder.X += amount; //sub-pixel movement accumulates
         int move = (int)MathF.Round(_remainder.X);
@@ -37,9 +30,16 @@ public abstract class Actor : Entity
         int sign = Math.Sign(move);
         while (move != 0)
         {
-            //shift bounds one piexsl in direction 'sign'
-            if (CollidesAt(sign, 0)) { velocity.X = 0; break; }
-            position.X += sign; move -= sign;
+            if (!CollidesAt(sign, 0))
+            {
+                //no solid immediately to the side
+                position.X += sign; move -= sign;
+            }
+            else
+            {
+                if (onCollide != null) onCollide();
+                break;
+            }
         }
     }
     
@@ -47,7 +47,7 @@ public abstract class Actor : Entity
     /// Moves this entity on the Y-axis by the specified amount, checking for collisions with solids.
     /// </summary>
     /// <param name="amount">amount to move, should be input as multiplied by deltaTime</param>
-    protected virtual void MoveY(float amount)
+    protected virtual void MoveY(float amount, Action? onCollide = null)
     {
         _remainder.Y += amount;
         int move = (int)MathF.Round(_remainder.Y);
@@ -57,8 +57,16 @@ public abstract class Actor : Entity
         while (move != 0)
         {
             //shift bounds one piexsl in direction 'sign'
-            if (CollidesAt(0, sign)) { velocity.Y = 0; break; }
-            position.Y += sign; move -= sign;
+            if (!CollidesAt(0, sign))
+            {
+                position.Y += sign; move -= sign;
+            }
+            else
+            {
+                if (onCollide != null) onCollide();
+                break;
+            }
+            
         }
     }
 }

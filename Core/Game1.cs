@@ -8,6 +8,7 @@ using AsepriteDotNet.IO;
 using MonoGame.Aseprite;
 using SimplePlatformer.Core;
 using SimplePlatformer.Entities;
+using System.Collections.Generic;
 
 namespace SimplePlatformer;
 
@@ -19,7 +20,7 @@ public class Game1 : Game
     private RenderTarget2D _virtualRenderTarget;
     private Rectangle _screenScaleRectangle;
     private Player _player;
-    private Solid _solid;
+    private List<Solid> _solids = new();
     
     public Game1()
     {
@@ -63,7 +64,7 @@ public class Game1 : Game
         _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.virtualWidth, GameSettings.virtualHeight);
         UpdateScreenScale();
         _player = new Player();
-        _solid = new Solid(new Point(100, 100)); //example solid
+        // solids will be created and positioned in LoadContent where sprite sizes are available
         base.Initialize();
     }
 
@@ -74,7 +75,41 @@ public class Game1 : Game
 
         // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
         _player.LoadContent(GraphicsDevice);
-        _solid.LoadContent(GraphicsDevice);
+
+        // Create a horizontal row of solids at the bottom of the virtual screen.
+        // We create the first solid, load its sprite to determine tile size, then create the rest in a loop.
+        _solids = new List<Solid>();
+
+        // Create first solid at x=0; we'll adjust its Y after we know its height
+        var first = new Solid(new Point(0, 0));
+        first.LoadContent(GraphicsDevice);
+        int tileWidth = first.Bounds.Width;
+        int tileHeight = first.Bounds.Height;
+        
+        var anotherOne = new Solid(new Point(GameSettings.virtualWidth-tileHeight*2, GameSettings.virtualHeight-tileHeight*2));
+        anotherOne.LoadContent(GraphicsDevice);
+        _solids.Add(anotherOne);
+
+        // How many tiles needed to span the virtual width (ceiling)
+        int count = (GameSettings.virtualWidth + tileWidth - 1) / tileWidth;
+
+        // position solids side-by-side along bottom
+        for (int i = 0; i < count; i++)
+        {
+            int x = i * tileWidth;
+            int y = GameSettings.virtualHeight - tileHeight;
+            // first already created for i==0
+            if (i == 0)
+            {
+                first.position = new Point(x, y);
+                _solids.Add(first);
+                continue;
+            }
+
+            var s = new Solid(new Point(x, y));
+            s.LoadContent(GraphicsDevice);
+            _solids.Add(s);
+        }
     }
 
     protected override void Update(GameTime gameTime)
@@ -100,7 +135,11 @@ public class Game1 : Game
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         _player.Draw(_spriteBatch);
-        _solid.Draw(_spriteBatch);
+        // draw all solids
+        foreach (var s in _solids)
+        {
+            s.Draw(_spriteBatch);
+        }
         _spriteBatch.End();
         
         // PASS 2: Render that texture stretched onto the physical OS window
