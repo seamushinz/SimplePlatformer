@@ -138,6 +138,50 @@ this milestone's real work hasn't started.
     doesn't move." Also noticed `moveUpCondition` uses `.Held()` while the
     other three directions use `.Pressed()` — worth confirming that's
     intentional.
+  - **Velocity/max-speed + ms review (2026-07-03):** `Game1` now feeds
+    `deltaTime = ElapsedGameTime.TotalMilliseconds`, and `Actor.Update` does
+    `MoveX(velocity * dt)` — so **velocity is defined as px/ms**. Four bugs
+    identified in `Player.Update`'s input block (user to fix, not Claude):
+    1. **Assignment vs accumulation** — lines use `velocity = …` where accel
+       needs `velocity += …` (velocity can never build up).
+    2. **`* deltaTime` scales the wrong operand** — dt is on the outside
+       scaling the whole clamped velocity; it should scale only the
+       *acceleration increment* (`velocity ± accel * dt`), with the clamp
+       applied *after*, un-scaled.
+    3. **Clamp direction inconsistent** — negative dirs (up/left) need
+       `Math.Max(-maxSpeed, …)` (floor); positive dirs (down/right) need
+       `Math.Min(maxSpeed, …)` (ceiling). Currently moveUp's `Min(maxSpeed…)`
+       is a no-op and moveLeft's `Min(-maxSpeed…)` snaps straight to max.
+    4. **Friction is frame-rate dependent** — the `MoveTowards(…, maxSpeed/4)`
+       decay removes a fixed chunk *per frame*; the max-delta arg needs
+       `* deltaTime`.
+  - **Units/ms follow-up:** constants `maxSpeed=2000`, `acceleration=1000`
+    were tuned for **seconds**; with px/ms they're ~1000× too fast. To stay
+    ms-native, scale velocity consts by /1000 (maxSpeed → ~2.0) and accel by
+    /1e6 (→ ~0.001). Alternative discussed: keep per-second constants and read
+    `TotalSeconds` once instead. **Decision pending** — pick one convention and
+    make velocity, acceleration, and friction all agree with it. Also flagged:
+    friction runs on the same frame as input accel (decay must be slower than
+    accel or max speed is never reached) — confirm that's intended.
+  - **Resolved (2026-07-03):** all four bugs above fixed by user — velocity now
+    accumulates (`+=`/`-=`), `dt` scales only the accel increment, clamp
+    directions correct, friction scaled by `dt` **and** gated behind "no
+    direction held" (clean fix for friction-fighting-input). Movement works.
+    Current tuning: `maxSpeed=0.5` (px/ms), `acceleration=0.025`. Chose
+    ms-native convention.
+  - **Remaining polish items (noted, not yet done):**
+    1. **Friction is per-input, not per-axis** — the line-47 guard skips
+       friction unless *nothing* is held, so holding one axis freezes decay on
+       the other (hold Right after tapping Down → Y coasts). Decay X and Y
+       independently.
+    2. **Diagonal speed ~41% fast** — each axis clamps to `maxSpeed`
+       independently (`√(0.5²+0.5²)≈0.707`). Mostly moot once Y becomes
+       gravity/jump.
+    3. **Accel is near-instant** — reaches `maxSpeed` in ~1–2 frames; widen the
+       `maxSpeed`:`acceleration` gap if a ramp/"weight" feel is wanted.
+    4. **Still top-down 8-dir** — up/down drive `velocity.Y` directly; replace
+       vertical input with gravity + jump impulse per Milestone 3 goal.
+    5. Remove the per-frame `Console.WriteLine` debug line.
 
 ## Milestone 4 — Collision :warning: the classic bug factory
 

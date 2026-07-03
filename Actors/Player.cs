@@ -5,7 +5,8 @@ namespace SimplePlatformer.Entities;
 
 public class Player : Actor
 {
-    private float speed = 260.0f;
+    private float maxSpeed = 0.5f;
+    private float acceleration = 0.01f;
 
     public Player()
     {
@@ -19,27 +20,43 @@ public class Player : Actor
             // Handle jump or select action
         }
         
-        if (InputManager.moveUpCondition.Held())
+        //inputs should zero out if opposite directions held
+        
+        if (InputManager.moveUpCondition.Held() && !InputManager.moveDownCondition.Held())
         { 
-            velocity.Y += -speed * deltaTime;
+            velocity.Y -= acceleration * deltaTime;
+            velocity.Y = Math.Max(-maxSpeed, velocity.Y);
         }
 
-        if (InputManager.moveDownCondition.Held())
+        if (InputManager.moveDownCondition.Held() && !InputManager.moveUpCondition.Held())
         {
-            velocity.Y += speed * deltaTime;
+            velocity.Y += acceleration * deltaTime;
+            velocity.Y = Math.Min(maxSpeed, velocity.Y);
+        }
+        
+
+        if (InputManager.moveLeftCondition.Held() && !InputManager.moveRightCondition.Held())
+        {
+            velocity.X -= acceleration * deltaTime;
+            velocity.X = Math.Max(-maxSpeed, velocity.X);
         }
 
-        if (InputManager.moveLeftCondition.Held())
+        if (InputManager.moveRightCondition.Held() && !InputManager.moveLeftCondition.Held())
         {
-            velocity.X += -speed * deltaTime;
+            velocity.X += acceleration * deltaTime;
+            velocity.X = Math.Min(maxSpeed, velocity.X);
         }
 
-        if (InputManager.moveRightCondition.Held())
+        if ((!InputManager.moveRightCondition.Held() && !InputManager.moveLeftCondition.Held()) || (InputManager.moveRightCondition.Held() && InputManager.moveLeftCondition.Held()))
         {
-            velocity.X += speed * deltaTime;
+            velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, (acceleration) * deltaTime);
         }
-        velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, speed/2 * deltaTime);
-        velocity.Y = GlobalFunctions.MoveTowards(velocity.Y, 0, speed/2 * deltaTime);
+        if ((!InputManager.moveUpCondition.Held() && !InputManager.moveDownCondition.Held()) || (InputManager.moveUpCondition.Held() && InputManager.moveDownCondition.Held()))
+        {
+            velocity.Y = GlobalFunctions.MoveTowards(velocity.Y, 0, (acceleration) * deltaTime);
+        }
+
+        Console.Out.WriteLine($"Player : {velocity.X}, {velocity.Y}");
 
         //apply gravity and movement/collisions
         base.Update(deltaTime);

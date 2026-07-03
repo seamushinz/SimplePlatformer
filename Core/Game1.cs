@@ -81,7 +81,7 @@ public class Game1 : Game
     {
         InputHelper.UpdateSetup();
         
-        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
         
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
             Keyboard.GetState().IsKeyDown(Keys.Escape))
