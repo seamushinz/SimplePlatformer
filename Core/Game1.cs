@@ -19,6 +19,7 @@ public class Game1 : Game
     private RenderTarget2D _virtualRenderTarget;
     private Rectangle _screenScaleRectangle;
     private Player _player;
+    private Solid _solid;
     
     public Game1()
     {
@@ -26,9 +27,10 @@ public class Game1 : Game
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
         
-                
         IsFixedTimeStep = false;
         _graphics.SynchronizeWithVerticalRetrace = false; 
+        _graphics.PreferredBackBufferWidth = GameSettings.virtualWidth*GameSettings.renderScale;
+        _graphics.PreferredBackBufferHeight = GameSettings.virtualHeight*GameSettings.renderScale;
         _graphics.ApplyChanges();
         
         Window.AllowUserResizing = true;
@@ -44,12 +46,12 @@ public class Game1 : Game
         int windowWidth = GraphicsDevice.Viewport.Width;
         int windowHeight = GraphicsDevice.Viewport.Height;
 
-        float scaleX = (float)windowWidth / GameSettings.VirtualWidth;
-        float scaleY = (float)windowHeight / GameSettings.VirtualHeight;
+        float scaleX = (float)windowWidth / GameSettings.virtualWidth;
+        float scaleY = (float)windowHeight / GameSettings.virtualHeight;
         float scale = Math.Min(scaleX, scaleY);
 
-        int finalWidth = (int)(GameSettings.VirtualWidth * scale);
-        int finalHeight = (int)(GameSettings.VirtualHeight * scale);
+        int finalWidth = (int)(GameSettings.virtualWidth * scale);
+        int finalHeight = (int)(GameSettings.virtualHeight * scale);
         int posX = (windowWidth - finalWidth) / 2;
         int posY = (windowHeight - finalHeight) / 2;
 
@@ -58,9 +60,10 @@ public class Game1 : Game
     protected override void Initialize()
     {
         // TODO: Add your initialization logic here
-        _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.VirtualWidth, GameSettings.VirtualHeight);
+        _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.virtualWidth, GameSettings.virtualHeight);
         UpdateScreenScale();
         _player = new Player();
+        _solid = new Solid(new Point(100, 100)); //example solid
         base.Initialize();
     }
 
@@ -70,7 +73,8 @@ public class Game1 : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
         // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
-        _player.LoadContent("player", GraphicsDevice);
+        _player.LoadContent(GraphicsDevice);
+        _solid.LoadContent(GraphicsDevice);
     }
 
     protected override void Update(GameTime gameTime)
@@ -96,6 +100,7 @@ public class Game1 : Game
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         _player.Draw(_spriteBatch);
+        _solid.Draw(_spriteBatch);
         _spriteBatch.End();
         
         // PASS 2: Render that texture stretched onto the physical OS window

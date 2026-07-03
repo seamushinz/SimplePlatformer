@@ -8,7 +8,7 @@ order: **(1) build real C#/MonoGame fluency**, and **(2)** end up with a
 
 This is a **compass, not a spec**. It sequences the work so you don't paint
 yourself into a corner (some things are genuinely painful to retrofit — those
-are flagged **⚠️ do early**), but *how* you architect each piece is yours to
+are flagged **:warning: do early**), but *how* you architect each piece is yours to
 decide. That decision-making is a big part of the learning.
 
 - Each milestone has **Goal**, **Learn** (concepts/APIs to reach for),
@@ -24,9 +24,9 @@ decide. That decision-making is a big part of the learning.
 
 ---
 
-## Milestone 0 — Foundations & project hygiene ⚠️ do early
+## Milestone 0 — Foundations & project hygiene :warning: do early
 
-**Status:** ✅ Done (2026-07-01) — `Nullable`/`ImplicitUsings` on, target
+**Status:** :white_check_mark: Done (2026-07-01) — `Nullable`/`ImplicitUsings` on, target
 framework confirmed as **net10.0** (csproj), timestep decided (see below).
 
 **Goal:** understand the loop you're building inside of, and lock in a couple
@@ -51,9 +51,9 @@ of decisions that are annoying to change later.
     `Game1`'s constructor. Movement code should integrate with
     `GameTime.ElapsedGameTime` rather than assuming a fixed `dt`.
 
-## Milestone 1 — Get a sprite on screen ⚠️ do early (scaling)
+## Milestone 1 — Get a sprite on screen :warning: do early (scaling)
 
-**Status:** ✅ Done (2026-07-01) — virtual-resolution scaling and a real
+**Status:** :white_check_mark: Done (2026-07-01) — virtual-resolution scaling and a real
 sprite render are both working.
 
 **Goal:** render pixel art correctly, at a resolution you control.
@@ -88,7 +88,7 @@ sprite render are both working.
 
 ## Milestone 2 — Input you can build on
 
-**Status:** 🔄 In progress — `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup`
+**Status:** :emoji_1F504: In progress — `InputHelper.Setup`/`UpdateSetup`/`UpdateCleanup`
 are wired into `Game1`'s lifecycle, but that's just Apos.Input's plumbing.
 No named actions (`jump`/`left`/`right`) exist yet, and `Game1.Update` still
 reads raw `Keyboard`/`GamePad` state directly (currently only for the
@@ -139,7 +139,7 @@ this milestone's real work hasn't started.
     other three directions use `.Pressed()` — worth confirming that's
     intentional.
 
-## Milestone 4 — Collision ⚠️ the classic bug factory
+## Milestone 4 — Collision :warning: the classic bug factory
 
 **Goal:** the player stands on ground and can't walk through walls.
 
@@ -156,6 +156,70 @@ this milestone's real work hasn't started.
   - How is the world queried for nearby solids? (A flat list is *fine* to
     start — don't build a spatial grid before you feel the pain.)
   - One-way platforms now or later?
+  - **Decided (2026-07-02):** Actor/Solid split under a shared `Entity` base —
+    `Entity` (position/sprite/Draw/Bounds) → `Actor : Entity` (velocity,
+    physics, MoveX/MoveY resolution) and `Solid : Entity` (collision geometry,
+    no velocity). User restructured into `Core/Entity.cs`, `Actors/`, and
+    `Solids/` folders same day.
+  - **Decided (2026-07-02):** `CollisionSystem` is **static** (matches the
+    static `InputManager`) and is a *queryable database of solids only* —
+    `Add`/`Remove`/`Clear` + overlap queries. It does not move entities;
+    resolution lives in `Actor.MoveX`/`MoveY` (axis-separated: X fully
+    resolves before Y). Trade-offs acknowledged: hidden dependency, one world
+    at a time, and `Clear()` must be called on level load or stale solids
+    persist. Revisit static-ness at Milestone 12 (template).
+  - **Decided (2026-07-02):** positions stay **float** (`Vector2`); simulate
+    in floats, snap to ints only at boundaries — `(int)` casts in the computed
+    `Bounds` property, rounding at draw time. Int positions would truncate
+    sub-pixel per-frame movement (velocity × dt) to zero at low speeds under
+    the variable timestep. Sub-pixel remainder accumulation (Celeste-style)
+    deliberately deferred until jitter is actually observed.
+  - **Jitter observed (2026-07-03):** the deferred sub-pixel issue arrived —
+    pushing continuously against a wall makes the *drawn* sprite wobble 1px
+    while `Bounds` stays flush. Root cause: pushback is computed in int
+    (Rectangle) space but subtracted from the float `position`, so the
+    fractional part cycles frame-to-frame and rasterization rounds it
+    differently each frame. Plan: (a) refactor `MoveX`/`MoveY` pushback to use
+    static `Rectangle.Intersect(a, b)` overlap `Width`/`Height` ×
+    `Math.Sign(amount)` instead of manual edge math; (b) zero the sub-pixel
+    fraction on the resolved axis when snapping; (c) read the Celeste/
+    TowerFall physics article and decide whether full int-position + remainder
+    accumulation belongs in the template (Milestone 12 question).
+  - **Update (2026-07-03):** flush-snap fix (`Rectangle.Intersect` overlap +
+    zero sub-pixel fraction) implemented in `MoveX`/`MoveY` — fixed jitter on
+    solids' right/bottom edges but not left/top. Root cause: `(int)` truncation
+    in `Bounds` is directionally biased — sub-pixel penetration from the
+    right/bottom shifts `Bounds` immediately (detected every frame), while
+    from the left/top `Bounds` doesn't move until a full pixel accumulates
+    (creep → 1px pop). Aggravated by variable timestep + no v-sync (tiny
+    per-frame steps) and gravity re-accelerating from zero while grounded.
+    **Decision: adopt Celeste-style movement now** — per-axis float
+    `_remainder` banks fractions, position moves in whole pixels only,
+    stepping 1px at a time and testing `Bounds` shifted by `Sign(move)`
+    before each step (blocked → zero that axis's velocity, break). Deletes
+    the snap-out math entirely (never enter a solid), makes draw rounding
+    moot, prevents tunneling, and the 1px-shifted query doubles as
+    `IsGrounded`.
+  - **Progress (2026-07-03):** `_remainder` field added; `MoveX` converted to
+    bank → round → early-out → step-loop shape. Remaining: (a) the per-pixel
+    blocked check inside `MoveX`'s loop is still a comment; (b) a stray
+    pre-loop `FirstOverlap(Bounds)` call in `MoveX` is unused and should go;
+    (c) `MoveY` still holds the old snap-out code and — mid-surgery — never
+    applies `move` to `position.Y` at all (gravity will stall until it's
+    rewritten as the mirror of `MoveX`). Optional refinements discussed:
+    `CollidesAt(Point offset)` helper (+ `Shifted` extension method on
+    `Rectangle` — note MonoGame's built-in `Rectangle.Offset` mutates in
+    place/returns void, so calling it on the computed `Bounds` property
+    mutates a throwaway struct copy and does nothing), computed
+    `IsGrounded => CollidesAt(0,1)`, and an `Action? onCollide` callback
+    instead of hard-coded velocity zeroing.
+  - Architecture scaffolding comments added (2026-07-02) to
+    `Systems/CollisionSystem.cs`, `Solids/Solid.cs`, `Actors/Actor.cs`, and
+    `Core/Entity.cs` — suggested members/signatures live there. Also flagged
+    in comments: hitbox fields + `Bounds` belong on `Entity` (not `Solid`);
+    hitbox offset should be `Point`/ints not `Vector2`; `Actor.LoadContent`
+    duplicates `Entity.LoadContent` (could call `base.LoadContent`);
+    `spriteAssetName = null` violates nullable annotations.
 
 ## Milestone 5 — Levels & the world
 
@@ -217,7 +281,7 @@ this milestone's real work hasn't started.
 - **Learn:** reusing your entity/collision foundations for a second actor;
   simple AI (patrol, edge/wall detection); damage, hazards, and a basic
   health/death loop.
-- **Done when:** an enemy patrols and collides, and player↔enemy contact does
+- **Done when:** an enemy patrols and collides, and player:emoji_2194:enemy contact does
   *something*.
 - **Decisions:** how much of `Entity`/`Player` genuinely generalizes to
   `Enemy`? This is where an entity base class earns its keep — or reveals it

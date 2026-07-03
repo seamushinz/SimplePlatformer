@@ -1,6 +1,6 @@
 namespace SimplePlatformer.Entities;
 
-public class Solid
+public class Enemy : Actor
 {
     
 }

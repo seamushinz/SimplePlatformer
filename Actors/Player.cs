@@ -3,9 +3,14 @@ using SimplePlatformer.Managers;
 
 namespace SimplePlatformer.Entities;
 
-public class Player : Entity
+public class Player : Actor
 {
-    private float speed = 4.0f;
+    private float speed = 260.0f;
+
+    public Player()
+    {
+        spriteAssetName = "player";
+    }
     public override void Update(float deltaTime)
     {
         //inputs
@@ -33,8 +38,8 @@ public class Player : Entity
         {
             velocity.X += speed * deltaTime;
         }
-        velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, 3.0f * deltaTime);
-        velocity.Y = GlobalFunctions.MoveTowards(velocity.Y, 0, 3.0f * deltaTime);
+        velocity.X = GlobalFunctions.MoveTowards(velocity.X, 0, speed/2 * deltaTime);
+        velocity.Y = GlobalFunctions.MoveTowards(velocity.Y, 0, speed/2 * deltaTime);
 
         //apply gravity and movement/collisions
         base.Update(deltaTime);

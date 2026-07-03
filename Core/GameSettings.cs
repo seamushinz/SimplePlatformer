@@ -1,12 +1,13 @@
 namespace SimplePlatformer.Core;
 
-public class GameSettings
+public static class GameSettings
 {
-    public const int VirtualWidth = 400;
-    public const int VirtualHeight = 300;
+    public const int virtualWidth = 400;
+    public const int virtualHeight = 300;
+    public static int renderScale = 4;
 }
 
-public class GlobalFunctions
+public static class GlobalFunctions
 {
     public static float MoveTowards(float current, float target, float maxDelta)
     {
