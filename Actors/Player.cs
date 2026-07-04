@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using SimplePlatformer.Core;
 using SimplePlatformer.Managers;
+using MonoGame.Aseprite;
 
 namespace SimplePlatformer.Entities;
 
@@ -10,28 +12,39 @@ public class Player : Actor
     private float maxFallSpeed = 1f;
     private float acceleration = 0.005f;
     private Vector2 velocity;
-    private bool onGround = true; 
+    private bool onGround = false;
+    private bool wasOnGround = false;
+    private Vector2 _scale;
+    // SQUASH/STRETCH (1 of 3): landing detection needs *last* frame's grounded
+    // state — add a field for it here (e.g. wasOnGround). Landing is the frame
+    // where onGround is true but wasOnGround is false. See Update() below.
 
     public Player()
     {
         spriteAssetName = "player";
+        _scale = new Vector2(1f, 1f);
+    }
+    
+    public override void LoadContent(GraphicsDevice graphicsDevice)
+    {
+        base.LoadContent(graphicsDevice);
+        sprite.Origin = new Vector2(sprite.Width / 2f, sprite.Height);
     }
     public void Update(float deltaTime)
     {
         //inputs
         if (InputManager.jumpOrSelectCondition.Pressed() && onGround)
         {
-            // Handle jump or select action
-            velocity.Y -= acceleration*100;
+            velocity.Y -= acceleration * 100;
+            _scale = new Vector2(0.5f, 1.5f);
         }
+
         //variable jump height
         if (InputManager.jumpOrSelectCondition.Released() && !onGround && velocity.Y < 0)
         {
-            // Handle jump or select action
             velocity.Y = 0;
         }
         
-        //inputs should zero out if opposite directions held
         if (InputManager.moveDownCondition.Held() && !InputManager.moveUpCondition.Held())
         {
             velocity.Y += acceleration * deltaTime;
@@ -60,12 +73,30 @@ public class Player : Actor
         {
             velocity.Y += GameSettings.gravity * deltaTime;
             velocity.Y = Math.Min(maxFallSpeed, velocity.Y);
+        }else if (!wasOnGround)
+        {
+            //landed
+            _scale = new Vector2(1.5f, 0.5f);
         }
         
         //apply gravity and movement/collisions
         MoveX(velocity.X * deltaTime, () => { velocity.X = 0;});
         MoveY(velocity.Y * deltaTime, () => { velocity.Y = 0;});
         
+        
+        float t = 1f - MathF.Exp(-0.01f * deltaTime);
+        _scale = Vector2.Lerp(_scale, Vector2.One, t);
+        
+        wasOnGround = onGround;
         onGround = CollidesAt(0, 1);
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        sprite.Scale = _scale;
+        Vector2 feetPosition = new Vector2(
+            position.X + sprite.Width / 2f,
+            position.Y + sprite.Height);
+        spriteBatch.Draw(sprite, feetPosition);
     }
 }

@@ -64,7 +64,6 @@ public class Game1 : Game
     }
     protected override void Initialize()
     {
-        // TODO: Add your initialization logic here
         _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.virtualWidth, GameSettings.virtualHeight);
         UpdateScreenScale();
         _player = new Player();
@@ -81,12 +80,9 @@ public class Game1 : Game
         // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
         _player.LoadContent(GraphicsDevice);
         _camera.SnapTo(_player.position.ToVector2());
-
-        // Create a horizontal row of solids at the bottom of the virtual screen.
-        // We create the first solid, load its sprite to determine tile size, then create the rest in a loop.
+        
         _solids = new List<Solid>();
-
-        // Create first solid at x=0; we'll adjust its Y after we know its height
+        
         var first = new Solid(new Point(0, 0));
         first.LoadContent(GraphicsDevice);
         int tileWidth = first.Bounds.Width;

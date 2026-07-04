@@ -13,8 +13,8 @@ public abstract class Entity
     protected Sprite sprite { get; set; }
     protected String spriteAssetName = null;
     protected Point _hitboxOffset;
-    protected int _hitboxWidth;
-    protected int _hitboxHeight;
+    private int _hitboxWidth;
+    private int _hitboxHeight;
     
     public Rectangle Bounds => new((int)position.X + _hitboxOffset.X, (int)position.Y + _hitboxOffset.Y, _hitboxWidth, _hitboxHeight);
     
@@ -26,13 +26,13 @@ public abstract class Entity
     
     public virtual void LoadContent(GraphicsDevice graphicsDevice)
     {
-        AsepriteFile playerAsepriteFile;
-        using Stream playerAsepriteStream = TitleContainer.OpenStream($"Assets/{spriteAssetName}.aseprite");
+        AsepriteFile entityAsepriteFile;
+        using Stream entityAsepriteStream = TitleContainer.OpenStream($"Assets/{spriteAssetName}.aseprite");
         {
-            playerAsepriteFile = AsepriteFileLoader.FromStream(spriteAssetName, playerAsepriteStream);    
+            entityAsepriteFile = AsepriteFileLoader.FromStream(spriteAssetName, entityAsepriteStream);    
         }
         
-        sprite = playerAsepriteFile.CreateSprite(graphicsDevice, 0, options: null);
+        sprite = entityAsepriteFile.CreateSprite(graphicsDevice, 0, options: null);
         _hitboxWidth = (int)sprite.Width;
         _hitboxHeight = (int)sprite.Height;
     }
