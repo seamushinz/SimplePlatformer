@@ -21,6 +21,12 @@ public class Camera
         float t = 1f - MathF.Exp(-cameraSnappiness * deltaTime);
         position = Vector2.Lerp(position, desiredPosition, t);
         
+        // TODO(LDtk 12): clamp to level bounds (deferred from Milestone 6 until levels
+        // exist). Using the level's pixel-bounds Rectangle exposed by LevelManager
+        // (TODO(LDtk 4)), clamp the camera so the visible rect — renderPos ±
+        // virtualWidth/2 and virtualHeight/2 — never leaves the level. Clamp the float
+        // `position` too (not just renderPos), otherwise the smoothed position keeps
+        // drifting past the edge and unsticks slowly on the way back.
         Vector2 offset = position - targetExact;
         Vector2 renderPos = new(
             targetPixel.X + MathF.Round(offset.X),

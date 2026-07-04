@@ -13,6 +13,9 @@ public abstract class Entity
     protected Sprite sprite { get; set; }
     protected String spriteAssetName = null;
     protected Point _hitboxOffset;
+    // TODO(LDtk 5, prerequisite): hitbox size can currently only come from a loaded
+    // sprite (set in LoadContent below). Sprite-less LDtk collision solids need to
+    // set these directly — see the TODO in Solid.cs for the plan.
     private int _hitboxWidth;
     private int _hitboxHeight;
     

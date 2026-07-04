@@ -81,8 +81,14 @@ public class Game1 : Game
         _player.LoadContent(GraphicsDevice);
         _camera.SnapTo(_player.position.ToVector2());
         
+        // TODO(LDtk 10): replace everything below (the hand-placed test solids) with
+        // the level pipeline: add a LevelManager field, have it load the .ldtk file
+        // and build collision/visuals here (TODO(LDtk 4-9)), then position _player at
+        // the PlayerSpawn from TODO(LDtk 9) — and SnapTo the camera *after* that, not
+        // before. The _solids list and the block-row loop go away entirely: collision
+        // rectangles live in CollisionSystem, tile art in the prerendered level.
         _solids = new List<Solid>();
-        
+
         var first = new Solid(new Point(0, 0));
         first.LoadContent(GraphicsDevice);
         int tileWidth = first.Bounds.Width;
@@ -136,6 +142,12 @@ public class Game1 : Game
         GraphicsDevice.SetRenderTarget(_virtualRenderTarget);
         GraphicsDevice.Clear(Color.CornflowerBlue);
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.GetMatrix());
+        // TODO(LDtk 11): draw the level first, behind the player:
+        // _levelManager.Draw(_spriteBatch) (from TODO(LDtk 8)). It must sit inside
+        // this Begin/End so the camera matrix + PointClamp apply to the tiles. The
+        // foreach over _solids below disappears with TODO(LDtk 10) — solids are
+        // invisible once tiles carry the visuals. Optional: clear pass 1 to
+        // level.BgColor instead of CornflowerBlue.
         _player.Draw(_spriteBatch);
         // draw all solids
         foreach (var s in _solids)
