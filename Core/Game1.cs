@@ -9,6 +9,7 @@ using MonoGame.Aseprite;
 using SimplePlatformer.Core;
 using SimplePlatformer.Entities;
 using System.Collections.Generic;
+using SimplePlatformer.Systems;
 
 namespace SimplePlatformer;
 
@@ -21,6 +22,7 @@ public class Game1 : Game
     private Rectangle _screenScaleRectangle;
     private Player _player;
     private List<Solid> _solids = new();
+    private Camera _camera;
     
     public Game1()
     {
@@ -47,12 +49,14 @@ public class Game1 : Game
         int windowWidth = GraphicsDevice.Viewport.Width;
         int windowHeight = GraphicsDevice.Viewport.Height;
 
-        float scaleX = (float)windowWidth / GameSettings.virtualWidth;
-        float scaleY = (float)windowHeight / GameSettings.virtualHeight;
-        float scale = Math.Min(scaleX, scaleY);
+        // Integer scale only: every virtual pixel maps to an exact NxN block of
+        // screen pixels, so nothing can shimmer as the world scrolls.
+        int scaleX = windowWidth / GameSettings.virtualWidth;
+        int scaleY = windowHeight / GameSettings.virtualHeight;
+        int scale = Math.Max(1, Math.Min(scaleX, scaleY));
 
-        int finalWidth = (int)(GameSettings.virtualWidth * scale);
-        int finalHeight = (int)(GameSettings.virtualHeight * scale);
+        int finalWidth = GameSettings.virtualWidth * scale;
+        int finalHeight = GameSettings.virtualHeight * scale;
         int posX = (windowWidth - finalWidth) / 2;
         int posY = (windowHeight - finalHeight) / 2;
 
@@ -64,6 +68,7 @@ public class Game1 : Game
         _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, GameSettings.virtualWidth, GameSettings.virtualHeight);
         UpdateScreenScale();
         _player = new Player();
+        _camera = new Camera();
         // solids will be created and positioned in LoadContent where sprite sizes are available
         base.Initialize();
     }
@@ -75,6 +80,7 @@ public class Game1 : Game
 
         // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
         _player.LoadContent(GraphicsDevice);
+        _camera.SnapTo(_player.position.ToVector2());
 
         // Create a horizontal row of solids at the bottom of the virtual screen.
         // We create the first solid, load its sprite to determine tile size, then create the rest in a loop.
@@ -123,6 +129,7 @@ public class Game1 : Game
             Exit();
         
         _player.Update(deltaTime);
+        _camera.Update(deltaTime, _player.position, _player.ExactPosition);
         base.Update(gameTime);
         InputHelper.UpdateCleanup();
     }
@@ -132,8 +139,7 @@ public class Game1 : Game
         // PASS 1: Render the game world to the virtual texture
         GraphicsDevice.SetRenderTarget(_virtualRenderTarget);
         GraphicsDevice.Clear(Color.CornflowerBlue);
-        
-        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.GetMatrix());
         _player.Draw(_spriteBatch);
         // draw all solids
         foreach (var s in _solids)
@@ -145,7 +151,7 @@ public class Game1 : Game
         // PASS 2: Render that texture stretched onto the physical OS window
         GraphicsDevice.SetRenderTarget(null);
         GraphicsDevice.Clear(Color.Black);
-        
+
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         _spriteBatch.Draw(_virtualRenderTarget, _screenScaleRectangle, Color.White);
         _spriteBatch.End();

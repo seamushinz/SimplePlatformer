@@ -6,9 +6,9 @@ namespace SimplePlatformer.Entities;
 
 public class Player : Actor
 {
-    private float maxSpeed = 0.2f;
+    private float maxSpeed = 0.3f;
     private float maxFallSpeed = 1f;
-    private float acceleration = 0.01f;
+    private float acceleration = 0.005f;
     private Vector2 velocity;
     private bool onGround = true; 
 
@@ -22,7 +22,7 @@ public class Player : Actor
         if (InputManager.jumpOrSelectCondition.Pressed() && onGround)
         {
             // Handle jump or select action
-            velocity.Y -= acceleration*400;
+            velocity.Y -= acceleration*100;
         }
         //variable jump height
         if (InputManager.jumpOrSelectCondition.Released() && !onGround && velocity.Y < 0)
@@ -58,7 +58,7 @@ public class Player : Actor
         //gravity
         if (!onGround)
         {
-            velocity.Y += acceleration * deltaTime;
+            velocity.Y += GameSettings.gravity * deltaTime;
             velocity.Y = Math.Min(maxFallSpeed, velocity.Y);
         }
         

@@ -112,16 +112,24 @@ else above has real implementation. See `TODO.md` for what's next.
 
 ## Notes on current state
 
-*(Last updated 2026-07-03 — see `TODO.md` for milestone-by-milestone detail.)*
+*(Last updated 2026-07-04 — see `TODO.md` for milestone-by-milestone detail.)*
 
-- **Done:** Milestone 0 (foundations), Milestone 1 (sprite on screen),
-  Milestone 2 (named input actions via Apos.Input).
-- **In progress:** Milestones 3 (player movement) and 4 (collision),
-  being built together. Velocity/acceleration/friction work. X/Y collision
-  resolution uses a Celeste-style integer-position-plus-remainder step loop
-  (`Actor.MoveX`/`MoveY`). Still missing: gravity, jump, and `IsGrounded`.
-  Movement is currently 8-directional (no gravity yet) — `Player` still
-  drives `velocity.Y` directly from up/down input.
+- **Done:** Milestones 0–4 — foundations, sprite on screen, named input
+  actions (Apos.Input), player movement (incl. gravity + jump as of
+  2026-07-04), and collision (Celeste-style integer-position-plus-remainder
+  step loop in `Actor.MoveX`/`MoveY`, plus grounded check).
+- **In progress:** Milestone 6 (camera), deliberately pulled ahead of
+  Milestone 5 (levels). Goal: smooth (exponentially damped,
+  framerate-independent) player-follow camera that stays pixel-perfect —
+  float position internally, rounded to integers when building the
+  `SpriteBatch` transform matrix for the world pass.
+- **Decided for Milestone 5 (levels):** end goal is a vampire-survivors-like
+  platformer with randomized levels via **Spelunky-style stitching of
+  hand-authored room chunks** (not full procgen). Editor will be **LDtk** —
+  the user specifically wants an autotiling brush, which rules out Aseprite
+  tilemap layers; Tiled + MonoGame.Extended ruled out (dependency size +
+  content-pipeline requirement). Level loading stays behind `LevelManager`,
+  keeping visual tiles / collision / entity-spawn data separate.
 - **Key architecture decisions so far:**
   - `Entity` (position/sprite/bounds) → `Actor : Entity` (velocity, move,
     collision) and `Solid : Entity` (static geometry).

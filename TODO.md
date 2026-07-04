@@ -102,8 +102,9 @@ not raw `Keyboard`/`GamePad` state.
 
 ## Milestone 3 — A player that moves
 
-**Status:** :emoji_1F504: In progress — velocity/acceleration/friction all work; gravity
-and jump are the remaining piece.
+**Status:** :white_check_mark: Done (2026-07-04) — gravity + jump reported working
+(alongside Milestone 4's grounded check). Double-check the old cleanup items
+below actually got swept up.
 
 **Goal:** position + velocity + gravity, tuned to feel like a platformer.
 
@@ -117,17 +118,17 @@ and jump are the remaining piece.
     velocity and movement.
   - **Velocity is px/ms**, not px/second (`Game1` passes `TotalMilliseconds`
     as `deltaTime`). Current tuning: `maxSpeed = 0.5`, `acceleration = 0.01`.
-- **Remaining work:**
-  1. Replace up/down input driving `velocity.Y` directly with real gravity +
-     a jump impulse (`jumpOrSelectCondition` is wired but currently a no-op).
-  2. Diagonal speed is ~41% too fast — each axis clamps to `maxSpeed`
-     independently. Likely moot once Y is gravity-driven instead of input-driven.
-  3. Remove the per-frame `Console.WriteLine` debug line in `Player.Update`.
+- **Leftover cleanup to verify:**
+  1. ~~Gravity + jump impulse~~ — done per user (2026-07-04).
+  2. Diagonal speed clamp issue — likely moot now that Y is gravity-driven;
+     confirm.
+  3. Remove the per-frame `Console.WriteLine` debug line in `Player.Update`,
+     if still present.
 
 ## Milestone 4 — Collision :warning: the classic bug factory
 
-**Status:** :emoji_1F504: In progress — core resolution algorithm is implemented and
-working; grounded-check and cleanup remain.
+**Status:** :white_check_mark: Done (2026-07-04) — resolution algorithm, gravity landing,
+and grounded check reported working.
 
 **Goal:** the player stands on ground and can't walk through walls.
 
@@ -148,31 +149,52 @@ working; grounded-check and cleanup remain.
     collision (`CollidesAt`) before each step and zeroing velocity + stopping
     if blocked. This makes tunneling impossible and removes the jitter
     entirely (see [the article this is based on](https://maddymakesgames.com/articles/celeste_and_towerfall_physics/index.html)).
-- **Remaining work:**
-  1. No gravity yet, so "lands on a solid" isn't really testable — tied to
-     Milestone 3's gravity/jump work.
-  2. Add an `IsGrounded` check (`CollidesAt(0, 1)` shifted one pixel down is
-     the natural implementation, given `MoveX`/`MoveY` already work this way).
-  3. Consider an `Action? onCollide` callback instead of hard-coded velocity
-     zeroing in `MoveX`/`MoveY`, if/when something other than "stop" is needed
-     (e.g. one-way platforms, hazards).
+- **Later, when needed:** consider an `Action? onCollide` callback instead of
+  hard-coded velocity zeroing in `MoveX`/`MoveY`, if/when something other than
+  "stop" is needed (e.g. one-way platforms, hazards).
 
 ## Milestone 5 — Levels & the world
 
+**Note (2026-07-04): deliberately reordered — Milestone 6 (camera) is being
+done *before* this one.**
+
 **Goal:** stop hardcoding geometry; load a level from data.
 
-- **Learn:** tilemaps — either MonoGame.Aseprite's tilemap support, or a
-  hand-rolled 2D array, or an external editor (**LDtk**/**Tiled**) if
-  hand-authoring gets tedious. World-space vs. screen-space coordinates.
+- **Learn:** tilemaps, tileset rendering (2D array of tile indices + source
+  rects from a tileset texture), world-space vs. screen-space coordinates,
+  parsing an external level format.
 - **Done when:** `LevelManager` can load a level into a set of solids/entities
   the rest of the game consumes, and you could add a second level without
   code changes.
-- **Decisions:**
-  - Author levels in Aseprite, in an editor (LDtk/Tiled), or in code/JSON?
-    (Weigh authoring speed vs. how much loader code you want to write/learn.)
-  - What *is* a "level" as a data structure? What does loading/unloading own?
+- **Decided (2026-07-04), from the roguelike-levels discussion:**
+  - **End goal:** vampire-survivors-like platformer with randomized levels.
+    Chosen generation model is **Spelunky-style chunk stitching** — a library
+    of hand-authored room chunks with compatible open edges, assembled
+    randomly at runtime — rather than fully procedural generation (which
+    requires solving traversability guarantees).
+  - **Editor: LDtk** (via `LDtkMonogame` or a hand-rolled JSON parser — the
+    format is well documented). Deciding factor: user wants an **autotiling
+    brush**, which rules out Aseprite tilemap layers (no autotiling, weak
+    entity/metadata placement). LDtk gives auto-tiling rules, IntGrid layers
+    (a ready-made collision grid), and entity layers with custom fields.
+  - **Ruled out:** Tiled + MonoGame.Extended — large dependency that overlaps
+    with hand-rolled learning systems, and its importer wants the content
+    pipeline this project bypasses.
+  - **Runtime representation** should keep three concerns separate, so the
+    generation strategy (single map vs. stitched chunks) is swappable behind
+    `LevelManager`: (1) visual tile layers, (2) collision data, (3) entity/
+    spawn data.
+- **Still open:**
+  - Collision representation: per-tile `Solid`s are O(n) death — either
+    **greedy-merge** solid tile runs into fewer large `Solid`s (keeps
+    `CollisionSystem` untouched), or add a **grid-based query path** to
+    `CollisionSystem` (tile-coordinate lookup, O(1); the idiomatic endgame
+    for tile platformers, incl. Celeste).
+  - `LDtkMonogame` library vs. hand-rolled LDtk JSON parser (learning value
+    vs. speed).
+  - Chunk edge-compatibility scheme for the stitcher.
 
-## Milestone 6 — Camera
+## Milestone 6 — Camera :emoji_1F504: current focus (2026-07-04, pulled ahead of Milestone 5)
 
 **Goal:** the view follows the player through a level larger than the screen.
 
@@ -180,9 +202,23 @@ working; grounded-check and cleanup remain.
   follow with a **deadzone**, and clamping the camera to level bounds.
 - **Done when:** the camera tracks the player smoothly and never shows past the
   edge of the level.
+- **Requirements (2026-07-04):** smooth follow of the player (no harsh
+  snapping) and **pixel-perfect** rendering. Approach discussed:
+  - Camera = a float `Vector2` position (player-center target) turned into an
+    inverse translation `Matrix` passed to `SpriteBatch.Begin(transformMatrix:)`
+    on the **world/render-target pass only** (UI pass stays untransformed).
+  - Smoothing via **exponential decay** toward the target, made
+    framerate-independent (mandatory — variable timestep) with a
+    `1 - exp(-k*dt)` style factor, *not* a fixed lerp fraction per frame.
+  - Pixel-perfect: keep the float position internally, **round to integers
+    only when building the matrix**, matching the integer-`Point`-plus-
+    remainder convention actors already use.
+  - Deadzone, look-ahead, and level-bounds clamping deferred until levels
+    exist (Milestone 5).
 - **Decisions:** roll your own (`Systems/Camera.cs` is stubbed) or evaluate
   **Apos.Camera** first? Either is a fine learning outcome — just make the
-  call consciously.
+  call consciously. (Leaning hand-rolled: virtual-resolution scaling — most
+  of what Apos.Camera adds — is already built.)
 
 ## Milestone 7 — Animation
 

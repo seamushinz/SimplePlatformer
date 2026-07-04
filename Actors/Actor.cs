@@ -8,7 +8,10 @@ namespace SimplePlatformer.Entities;
 public abstract class Actor : Entity
 {
     private Vector2 _remainder;
-    
+
+    /// <summary>Integer position plus the sub-pixel remainder = true float position.</summary>
+    public Vector2 ExactPosition => position.ToVector2() + _remainder;
+
     /// <summary>
     /// Checks if Actor collides with a Solid at the shifted coordinates using Bounds
     /// </summary>
