@@ -5,7 +5,7 @@ public static class GameSettings
     public const int virtualWidth = 400;
     public const int virtualHeight = 300;
     public static int renderScale = 4;
-    public static float gravity = 0.002f;
+    public static float gravity = 0.0015f;
 }
 
 public static class GlobalFunctions

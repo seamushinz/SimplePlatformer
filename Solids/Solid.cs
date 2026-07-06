@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using SimplePlatformer.Systems;
 
 namespace SimplePlatformer.Entities;
@@ -16,8 +17,6 @@ public class Solid : Entity
     //     or constructor path).
     //   - Draw/LoadContent assume `sprite` exists — make them skip when there is
     //     no sprite (good excuse to nullable-annotate `sprite` while in there).
-
-
     public Solid()
     {
         spriteAssetName = "block";
@@ -30,5 +29,15 @@ public class Solid : Entity
         position.X = _position.X;
         position.Y = _position.Y;
         CollisionSystem.Add(this);
+    }
+
+    public override void LoadContent(GraphicsDevice GraphicsDevice)
+    {
+        base.LoadContent(GraphicsDevice);
+    }
+    
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+       base.Draw(spriteBatch);
     }
 }

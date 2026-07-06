@@ -153,10 +153,31 @@ and grounded check reported working.
   hard-coded velocity zeroing in `MoveX`/`MoveY`, if/when something other than
   "stop" is needed (e.g. one-way platforms, hazards).
 
-## Milestone 5 — Levels & the world
+## Milestone 5 — Levels & the world :emoji_1F504: current focus
 
-**Note (2026-07-04): deliberately reordered — Milestone 6 (camera) is being
+**Note (2026-07-04): deliberately reordered — Milestone 6 (camera) was
 done *before* this one.**
+
+**Status (2026-07-05): in progress.**
+- **LDtkMonogame adopted** (resolves the library-vs-hand-rolled question below).
+  Level file: `Assets/SimplePlatformer.ldtk`, layers: Entities / Foreground /
+  Collisions (IntGrid w/ rules) / Background.
+- `LevelManager.LoadContent` loads the level and turns the `Collisions`
+  IntGrid into per-tile `Solid`s. Known issues found 2026-07-05:
+  1. **Ordering bug:** `Game1.LoadContent` calls `CollisionSystem.LoadContent`
+     *before* `LevelManager.LoadContent` creates the solids, so no solid ever
+     loads its sprite → NRE in `Draw`. Real fix is the sprite-less-Solid
+     prerequisite (TODO(LDtk 5) in `Solid.cs`/`Entity.cs`), still pending.
+  2. **Double registration:** `Solid`'s constructor calls
+     `CollisionSystem.Add(this)` *and* `LevelManager` adds the same solid
+     again. Decide one owner for registration.
+- **Entity spawn loading:** `GetEntity<T>` requires `T` to carry LDtkMonogame's
+  base entity fields (`Uid`, `Iid`, `Identifier`, `Position` (`Vector2`),
+  `Size`, `Pivot`, `Tile`, `SmartColor`) — implement `LDtk.ILDtkEntity`, don't
+  hand-pick fields. Also: `GetEntity<T>` matches the LDtk entity identifier to
+  the **class name** — current LDtk entity is `Player`, which collides
+  conceptually with `Actors/Player`; consider renaming both sides to
+  `PlayerSpawn`.
 
 **Goal:** stop hardcoding geometry; load a level from data.
 
@@ -190,11 +211,13 @@ done *before* this one.**
     `CollisionSystem` untouched), or add a **grid-based query path** to
     `CollisionSystem` (tile-coordinate lookup, O(1); the idiomatic endgame
     for tile platformers, incl. Celeste).
-  - `LDtkMonogame` library vs. hand-rolled LDtk JSON parser (learning value
-    vs. speed).
+  - ~~`LDtkMonogame` library vs. hand-rolled LDtk JSON parser~~ — **decided
+    (2026-07-05): LDtkMonogame.**
   - Chunk edge-compatibility scheme for the stitcher.
 
-## Milestone 6 — Camera :emoji_1F504: current focus (2026-07-04, pulled ahead of Milestone 5)
+## Milestone 6 — Camera (2026-07-04, pulled ahead of Milestone 5; core follow
+implemented and in use in `Game1` as of 2026-07-05 — deadzone/look-ahead/bounds
+clamping still deferred until Milestone 5 levels exist)
 
 **Goal:** the view follows the player through a level larger than the screen.
 

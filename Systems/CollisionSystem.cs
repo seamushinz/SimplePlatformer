@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using SimplePlatformer.Entities;
 
 namespace SimplePlatformer.Systems;
@@ -24,6 +25,23 @@ public static class CollisionSystem
         return false;
     }
     
+    //draw all solids with their draw methods
+    public static void Draw(SpriteBatch spriteBatch)
+    {
+        foreach (var solid in _solids)
+        {
+            solid.Draw(spriteBatch);
+        }
+    }
+
+    public static void LoadContent(GraphicsDevice graphicsDevice)
+    {
+        foreach (var solid in _solids)
+        {
+            solid.LoadContent(graphicsDevice);
+        }
+    }
+
     /// <summary>
     ///  Returns the first solid in the list that overlaps the given bounds, or null if none do.
     /// </summary>

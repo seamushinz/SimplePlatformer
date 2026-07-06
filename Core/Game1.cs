@@ -9,6 +9,7 @@ using MonoGame.Aseprite;
 using SimplePlatformer.Core;
 using SimplePlatformer.Entities;
 using System.Collections.Generic;
+using SimplePlatformer.Managers;
 using SimplePlatformer.Systems;
 
 namespace SimplePlatformer;
@@ -21,7 +22,6 @@ public class Game1 : Game
     private RenderTarget2D _virtualRenderTarget;
     private Rectangle _screenScaleRectangle;
     private Player _player;
-    private List<Solid> _solids = new();
     private Camera _camera;
     
     public Game1()
@@ -76,10 +76,12 @@ public class Game1 : Game
     {
         InputHelper.Setup(this);
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-        // TODO: use this.Content to load your game content here. load all the entity and stuff sprites here programatically somehow?
+        LevelManager.LoadContent();
+        CollisionSystem.LoadContent(GraphicsDevice);
         _player.LoadContent(GraphicsDevice);
+        _player.position = LevelManager.playerSpawnPoint;
         _camera.SnapTo(_player.position.ToVector2());
+        
         
         // TODO(LDtk 10): replace everything below (the hand-placed test solids) with
         // the level pipeline: add a LevelManager field, have it load the .ldtk file
@@ -87,37 +89,6 @@ public class Game1 : Game
         // the PlayerSpawn from TODO(LDtk 9) — and SnapTo the camera *after* that, not
         // before. The _solids list and the block-row loop go away entirely: collision
         // rectangles live in CollisionSystem, tile art in the prerendered level.
-        _solids = new List<Solid>();
-
-        var first = new Solid(new Point(0, 0));
-        first.LoadContent(GraphicsDevice);
-        int tileWidth = first.Bounds.Width;
-        int tileHeight = first.Bounds.Height;
-        
-        var anotherOne = new Solid(new Point(GameSettings.virtualWidth-tileHeight*2, GameSettings.virtualHeight-tileHeight*2));
-        anotherOne.LoadContent(GraphicsDevice);
-        _solids.Add(anotherOne);
-
-        // How many tiles needed to span the virtual width (ceiling)
-        int count = (GameSettings.virtualWidth + tileWidth - 1) / tileWidth;
-
-        // position solids side-by-side along bottom
-        for (int i = 0; i < count; i++)
-        {
-            int x = i * tileWidth;
-            int y = GameSettings.virtualHeight - tileHeight;
-            // first already created for i==0
-            if (i == 0)
-            {
-                first.position = new Point(x, y);
-                _solids.Add(first);
-                continue;
-            }
-
-            var s = new Solid(new Point(x, y));
-            s.LoadContent(GraphicsDevice);
-            _solids.Add(s);
-        }
     }
 
     protected override void Update(GameTime gameTime)
@@ -150,10 +121,7 @@ public class Game1 : Game
         // level.BgColor instead of CornflowerBlue.
         _player.Draw(_spriteBatch);
         // draw all solids
-        foreach (var s in _solids)
-        {
-            s.Draw(_spriteBatch);
-        }
+        CollisionSystem.Draw(_spriteBatch);
         _spriteBatch.End();
         
         // PASS 2: Render that texture stretched onto the physical OS window

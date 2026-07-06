@@ -15,10 +15,7 @@ public class Player : Actor
     private bool onGround = false;
     private bool wasOnGround = false;
     private Vector2 _scale;
-    // SQUASH/STRETCH (1 of 3): landing detection needs *last* frame's grounded
-    // state — add a field for it here (e.g. wasOnGround). Landing is the frame
-    // where onGround is true but wasOnGround is false. See Update() below.
-
+    
     public Player()
     {
         spriteAssetName = "player";
@@ -45,7 +42,7 @@ public class Player : Actor
             velocity.Y = 0;
         }
         
-        if (InputManager.moveDownCondition.Held() && !InputManager.moveUpCondition.Held())
+        if (InputManager.moveDownCondition.Held() && !onGround && !InputManager.moveUpCondition.Held())
         {
             velocity.Y += acceleration * deltaTime;
             velocity.Y = Math.Min(maxFallSpeed, velocity.Y);
@@ -84,7 +81,7 @@ public class Player : Actor
         MoveY(velocity.Y * deltaTime, () => { velocity.Y = 0;});
         
         
-        float t = 1f - MathF.Exp(-0.01f * deltaTime);
+        float t = 1f - MathF.Exp(-0.015f * deltaTime);
         _scale = Vector2.Lerp(_scale, Vector2.One, t);
         
         wasOnGround = onGround;

@@ -25,23 +25,17 @@
         </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
-        <!-- TODO(LDtk 1): add the LDtkMonogame package (`dotnet add package LDtkMonogame`).
-             It parses .ldtk JSON at runtime (namespace `LDtk`) — no content pipeline
-             needed, same philosophy as the direct .aseprite loading this project uses. -->
         <PackageReference Include="Apos.Input" Version="2.5.0" />
+        <PackageReference Include="LDtkMonogame" Version="1.8.1" />
         <PackageReference Include="MonoGame.Aseprite" Version="6.3.1" />
         <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
         <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
     </ItemGroup>
     <ItemGroup>
-        <!-- TODO(LDtk 2): copy the level data to the output dir, same pattern as the
-             .aseprite entry below — add an Assets/**/*.ldtk item with
-             CopyToOutputDirectory. The tileset .png(s) the LDtk project references
-             must be copied too, at the same path *relative to the .ldtk file*,
-             because the runtime loader resolves tileset textures relative to it.
-             Tip: keep "Save levels to separate files" OFF in LDtk's project settings
-             so everything stays in one .ldtk file. -->
         <None Update="Assets/**/*.aseprite">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Update="Assets/**/*.ldtk">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>

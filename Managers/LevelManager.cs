@@ -1,21 +1,52 @@
+using Microsoft.Xna.Framework;
+using SimplePlatformer.Entities;
+using SimplePlatformer.Systems;
 namespace SimplePlatformer.Managers;
+using LDtk;
 
-// TODO(LDtk 3): before writing any code here, author a test level in the LDtk editor
-// and save it under Assets/ (see TODO(LDtk 1-2) in the csproj). Layers to create —
-// the names matter, the code below looks them up by name:
-//   - "Collisions": an IntGrid layer (value 1 = solid). Sole source of collision data.
-//   - a visual AutoLayer (or Tiles layer) whose autotile rules read from that IntGrid,
-//     so painting collision paints art in one stroke — the autotiling brush is why
-//     LDtk was chosen (TODO.md Milestone 5).
-//   - "Entities": an Entity layer with at least a "PlayerSpawn" point entity.
-public class LevelManager
+
+
+public static class LevelManager
 {
-    // TODO(LDtk 4): load file → world → level. `using LDtk;` at the top, then fields:
-    //   - LDtkFile:  LDtkFile.FromFile("Assets/<name>.ldtk") — parses the JSON at runtime.
-    //   - LDtkWorld: file.LoadSingleWorld() (fine for a single-world project).
-    //   - LDtkLevel: world.LoadLevel("Level_0") — the current level, by identifier.
-    // Also expose the level's pixel bounds (level.Position and level.Size are both
-    // world-space px) as a public Rectangle — the camera needs it for TODO(LDtk 12).
+    private static LDtkFile file;
+    private static LDtkWorld world;
+    private static LDtkLevel level;
+    private static LDtkIntGrid collisions;
+    public static Rectangle levelBounds {get; private set;}
+    public static Point playerSpawnPoint {get; private set;}
+    private class Player : ILDtkEntity {
+        public string Identifier { get; set; }
+        public Guid Iid { get; set; }
+        public int Uid { get; set; }
+        public Vector2 Position { get; set; }
+        public Vector2 Size { get; set; }
+        public Vector2 Pivot { get; set; }
+        public Rectangle Tile { get; set; }
+        public Color SmartColor { get; set; }
+    }
+
+    public static void LoadContent()
+    {
+        CollisionSystem.Clear();
+        file = LDtkFile.FromFile("Assets/SimplePlatformer.ldtk");
+        world = file.LoadSingleWorld();
+        level = world.LoadLevel("Level_0");
+        levelBounds = new Rectangle(level.Position.X, level.Position.Y, level.Size.X, level.Size.Y);
+        collisions = level.GetIntGrid("Collisions");
+        for (var i = 0; i < collisions.GridSize.X; i++)
+        {
+            for (var j = 0; j < collisions.GridSize.Y; j++)
+            {
+                if (collisions.GetValueAt(i, j) != 0)
+                {
+                    // Create a Solid at the position of the cell
+                    Point cellPosition = new Point(level.Position.X + i * collisions.TileSize, level.Position.Y + j * collisions.TileSize);
+                    Solid solid = new Solid(cellPosition);
+                }
+            }
+        }
+        playerSpawnPoint = level.GetEntity<Player>().Position.ToPoint();
+    }
 
     // TODO(LDtk 6): collision data. Turn the IntGrid into Solids:
     //   var grid = level.GetIntGrid("Collisions");
