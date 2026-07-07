@@ -40,6 +40,9 @@ public abstract class Actor : Entity
             }
             else
             {
+                //blocked: discard the banked sub-pixel movement too, or ExactPosition
+                //oscillates while pushing against a wall (caused camera jitter)
+                _remainder.X = 0;
                 if (onCollide != null) onCollide();
                 break;
             }
@@ -66,10 +69,11 @@ public abstract class Actor : Entity
             }
             else
             {
+                _remainder.Y = 0;
                 if (onCollide != null) onCollide();
                 break;
             }
-            
+
         }
     }
 }

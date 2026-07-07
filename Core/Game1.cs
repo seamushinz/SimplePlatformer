@@ -76,19 +76,11 @@ public class Game1 : Game
     {
         InputHelper.Setup(this);
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-        LevelManager.LoadContent();
+        LevelManager.LoadContent(_spriteBatch); // needs SpriteBatch to bake tilesets
         CollisionSystem.LoadContent(GraphicsDevice);
         _player.LoadContent(GraphicsDevice);
-        _player.position = LevelManager.playerSpawnPoint;
+        _player.position = LevelManager.PlayerSpawnPoint;
         _camera.SnapTo(_player.position.ToVector2());
-        
-        
-        // TODO(LDtk 10): replace everything below (the hand-placed test solids) with
-        // the level pipeline: add a LevelManager field, have it load the .ldtk file
-        // and build collision/visuals here (TODO(LDtk 4-9)), then position _player at
-        // the PlayerSpawn from TODO(LDtk 9) — and SnapTo the camera *after* that, not
-        // before. The _solids list and the block-row loop go away entirely: collision
-        // rectangles live in CollisionSystem, tile art in the prerendered level.
     }
 
     protected override void Update(GameTime gameTime)
@@ -111,16 +103,13 @@ public class Game1 : Game
     {
         // PASS 1: Render the game world to the virtual texture
         GraphicsDevice.SetRenderTarget(_virtualRenderTarget);
-        GraphicsDevice.Clear(Color.CornflowerBlue);
+        GraphicsDevice.Clear(LevelManager.BackgroundColor); // authored per-level in LDtk
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.GetMatrix());
-        // TODO(LDtk 11): draw the level first, behind the player:
-        // _levelManager.Draw(_spriteBatch) (from TODO(LDtk 8)). It must sit inside
-        // this Begin/End so the camera matrix + PointClamp apply to the tiles. The
-        // foreach over _solids below disappears with TODO(LDtk 10) — solids are
-        // invisible once tiles carry the visuals. Optional: clear pass 1 to
-        // level.BgColor instead of CornflowerBlue.
+        LevelManager.Draw(_spriteBatch); // level tiles first = behind actors
         _player.Draw(_spriteBatch);
-        // draw all solids
+        // TODO: once LevelManager.Draw's tile loop is filled in and tiles carry
+        // the visuals, drop the "block" sprite from Solid and delete this line
+        // (and CollisionSystem.Draw/LoadContent — solids become pure hitboxes).
         CollisionSystem.Draw(_spriteBatch);
         _spriteBatch.End();
         

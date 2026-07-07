@@ -164,13 +164,21 @@ done *before* this one.**
   Collisions (IntGrid w/ rules) / Background.
 - `LevelManager.LoadContent` loads the level and turns the `Collisions`
   IntGrid into per-tile `Solid`s. Known issues found 2026-07-05:
-  1. **Ordering bug:** `Game1.LoadContent` calls `CollisionSystem.LoadContent`
-     *before* `LevelManager.LoadContent` creates the solids, so no solid ever
-     loads its sprite → NRE in `Draw`. Real fix is the sprite-less-Solid
-     prerequisite (TODO(LDtk 5) in `Solid.cs`/`Entity.cs`), still pending.
-  2. **Double registration:** `Solid`'s constructor calls
-     `CollisionSystem.Add(this)` *and* `LevelManager` adds the same solid
-     again. Decide one owner for registration.
+  1. ~~**Ordering bug**~~ — resolved: `Game1.LoadContent` now calls
+     `LevelManager.LoadContent` before `CollisionSystem.LoadContent`. The
+     deeper fix (sprite-less Solids) lands with rendering — see cleanup notes
+     below.
+  2. ~~**Double registration**~~ — **fixed (2026-07-06, Claude cleanup pass):**
+     `LevelManager` is the single registration owner; `Solid`'s constructor no
+     longer self-registers.
+- **Cleanup pass (2026-07-06, done by Claude with user's OK):** `LevelManager`
+  fields → locals where possible, public properties renamed to PascalCase
+  (`LevelBounds`, `PlayerSpawnPoint`), IntGrid loop extracted to
+  `BuildCollision`, unused `solid` variable removed. `Solid` collapsed to one
+  constructor taking explicit position + width/height (from the IntGrid's
+  `TileSize`); it still sets the `"block"` debug sprite until tiles render.
+  `Entity.LoadContent` no longer stomps an explicitly-set hitbox with the
+  sprite's dimensions (only defaults when hitbox is 0).
 - **Entity spawn loading:** `GetEntity<T>` requires `T` to carry LDtkMonogame's
   base entity fields (`Uid`, `Iid`, `Identifier`, `Position` (`Vector2`),
   `Size`, `Pivot`, `Tile`, `SmartColor`) — implement `LDtk.ILDtkEntity`, don't
@@ -178,6 +186,85 @@ done *before* this one.**
   the **class name** — current LDtk entity is `Player`, which collides
   conceptually with `Actors/Player`; consider renaming both sides to
   `PlayerSpawn`.
+- **Rendering — blocker found (2026-07-06):** two facts discovered by
+  inspecting the actual LDtkMonogame 1.8.1 assembly:
+  1. The renderer class is **`ExampleRenderer`** (`LDtk.Renderer` namespace),
+     not `LDtkRenderer` — older docs use the old name. API is as expected:
+     ctor takes `SpriteBatch` (optionally + `ContentManager`), then
+     `PrerenderLevel(level)` once at load, `RenderPrerenderedLevel(level)`
+     each frame.
+  2. **The tileset is a `.aseprite` file** (`Assets/Tileset.aseprite`, stored
+     in the .ldtk as relPath `../Assets/Tileset.aseprite`). Without a
+     `ContentManager`, `ExampleRenderer.GetTexture` loads tilesets via
+     `Texture2D.FromFile`, which decodes png/jpg/bmp — **not Aseprite files**.
+     Prerendering will throw. Options:
+     - **(a) Export the tileset to PNG** (Aseprite File→Export, or a CLI
+       `--save-as` step), repoint the tileset definition in LDtk at the .png,
+       add an `Assets/**/*.png` `CopyToOutputDirectory` rule to the csproj.
+       Fast; keeps `ExampleRenderer`; adds a manual export step to the art
+       workflow.
+     - **(b) Hand-roll the layer renderer** (~30-50 lines): load
+       `Tileset.aseprite` with MonoGame.Aseprite (same as every other sprite),
+       iterate `level.LayerInstances` — `AutoLayerTiles`/`GridTiles` each
+       carry `Src` (tileset source px), `Px` (level-space dest px), and flip
+       bits (`F`) — and `SpriteBatch.Draw` each tile. More work, but keeps the
+       aseprite-only asset pipeline, drops the `LDtk.Renderer` dependency, and
+       is exactly the "tileset rendering" learning goal this milestone lists.
+       Can draw tiles directly each frame (a ~25×19-tile screen is nothing) or
+       bake to a `RenderTarget2D` once like `ExampleRenderer` does.
+     - **Skeleton in place (2026-07-06, Claude, user-requested):**
+       `LevelManager` now takes a `GraphicsDevice`, loads every distinct
+       `_TilesetRelPath` into a `Dictionary<string, Texture2D>` (multi-tileset,
+       nothing hardcoded — path resolved relative to `WorldFilePath`, loaded
+       via the same MonoGame.Aseprite route as `Entity.LoadContent`), exposes
+       `BackgroundColor` (`_level._BgColor`), and has a `Draw` that iterates
+       layers in reverse, skips Entities/invisible layers, and selects
+       `GridTiles` vs `AutoLayerTiles`. **User writes the per-tile
+       `SpriteBatch.Draw` body** (source rect from `Src`+`_GridSize`, dest
+       from `level.Position + Px + _PxTotalOffset`, flip bits `F` →
+       `SpriteEffects`). `Game1` wired: clear-to-BgColor + `LevelManager.Draw`
+       before the player.
+     - **Decided (2026-07-06): (b) hand-rolled renderer.** Deciding factor:
+       zero intermediary steps for the artist — edit `Tileset.aseprite`, and
+       it flows to LDtk (which previews `.aseprite` tilesets natively) and
+       into the game (loaded via MonoGame.Aseprite like every other sprite)
+       with no export step. Verified against the actual 1.8.1 DLL:
+       `ExampleRenderer.GetTexture` calls
+       `Texture2D.FromFile(graphicsDevice, Path.Join(dir(WorldFilePath), relPath))`
+       when no ContentManager is supplied, and MonoGame documents `FromFile`
+       as supporting bmp/gif/jpg/png/tif/dds only.
+     - **API map for the hand-rolled version (from the 1.8.1 assembly):**
+       `LDtkLevel.LayerInstances` → `LayerInstance` with `_Type`
+       (`Entities`/`Tiles`/`AutoLayer`/`IntGrid`), `GridTiles` (Tiles layers),
+       `AutoLayerTiles` (auto-rules layers), `_GridSize`, `_Opacity`,
+       `Visible`, `_PxTotalOffsetX/Y`; each `TileInstance` has `Px` (dest px,
+       layer space), `Src` (source px in tileset), `F` (flip bits: 1=X, 2=Y),
+       `T` (tile id), `A` (alpha). `LDtkLevel._BgColor` available for the
+       clear color. LayerInstances is ordered top-first (LDtk editor order) —
+       draw it in reverse.
+     - **Second blocker found & routed around (2026-07-06):** first run
+       crashed twice.
+       1. `TitleContainer.OpenStream` rejects the tileset path —
+          `LDtkLevel.WorldFilePath` is absolute, and TitleContainer only takes
+          app-relative paths. Fixed: plain `File.OpenRead` (TitleContainer is
+          a console/mobile packaging abstraction; unneeded on desktop).
+       2. `CreateSprite` → `IndexOutOfRangeException` in AsepriteDotNet
+          1.9.0's `BlendTilemapCel`: `Tileset.aseprite` is authored on an
+          **Aseprite tilemap layer**, and (per IL disassembly of the shipped
+          DLL) `BlendTilemapCel` discards each tile's ID and copies the
+          *entire* tileset pixel strip into every single tile cell — an
+          overflow for any tileset with >1 tile, plus a Width/Height mixup in
+          the stride math. Frame-flattening of tilemap layers is broken in
+          the current release, full stop. **Worth filing upstream at
+          AristurtleDev/AsepriteDotNet.**
+       - **Decided: render-target bake.** Skip flattening; use the supported
+         `CreateTilemap(gd, 0)` path and draw the tilemap once into a
+         canvas-sized `RenderTarget2D` at load (recipe in `LevelManager.cs`;
+         user writes it). Alternatives considered: hand-blitting tile IDs +
+         tileset strip via `SetData` (more educational, more code), or
+         converting the tilemap layer to an image layer in Aseprite (rejected
+         — adds a per-edit artist step, against the zero-export pipeline
+         goal). `LevelManager.LoadContent` now takes `SpriteBatch`.
 
 **Goal:** stop hardcoding geometry; load a level from data.
 
