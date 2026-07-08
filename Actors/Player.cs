@@ -8,18 +8,32 @@ namespace SimplePlatformer.Entities;
 
 public class Player : Actor
 {
-    private float maxSpeed = 0.3f;
+    private float maxSpeed = 0.2f;
     private float maxFallSpeed = 1f;
     private float acceleration = 0.005f;
     private Vector2 velocity;
     private bool onGround = false;
     private bool wasOnGround = false;
     private Vector2 _scale;
+    private const float jumpBufferTime = 150f; //time in ms 
+    private float jumpBufferTimer = -1f;
+    private float jumpSpeed = 0.5f;
+    private bool inAirFromJump = false;
+    private bool jumpedThisFrame = false;
     
     public Player()
     {
         spriteAssetName = "player";
         _scale = new Vector2(1f, 1f);
+    }
+
+    private void doJump()
+    {
+        velocity.Y = -jumpSpeed;
+        _scale = new Vector2(0.5f, 1.5f);
+        jumpBufferTimer = -1;
+        inAirFromJump = true;
+        jumpedThisFrame = true;
     }
     
     public override void LoadContent(GraphicsDevice graphicsDevice)
@@ -30,14 +44,18 @@ public class Player : Actor
     public void Update(float deltaTime)
     {
         //inputs
-        if (InputManager.jumpOrSelectCondition.Pressed() && onGround)
+        if (InputManager.jumpOrSelectCondition.Pressed())
         {
-            velocity.Y -= acceleration * 100;
-            _scale = new Vector2(0.5f, 1.5f);
+            jumpBufferTimer = jumpBufferTime;
         }
+        if (onGround && jumpBufferTimer >= 0)
+        {
+            doJump();
+        }
+        jumpBufferTimer -= deltaTime;
 
         //variable jump height
-        if (InputManager.jumpOrSelectCondition.Released() && !onGround && velocity.Y < 0)
+        if ((!InputManager.jumpOrSelectCondition.Held()) && inAirFromJump && !onGround && velocity.Y < 0)
         {
             velocity.Y = 0;
         }
@@ -74,18 +92,19 @@ public class Player : Actor
         {
             //landed
             _scale = new Vector2(1.5f, 0.5f);
+            if (!jumpedThisFrame){inAirFromJump = false;}
         }
         
         //apply gravity and movement/collisions
         MoveX(velocity.X * deltaTime, () => { velocity.X = 0;});
         MoveY(velocity.Y * deltaTime, () => { velocity.Y = 0;});
         
-        
         float t = 1f - MathF.Exp(-0.015f * deltaTime);
         _scale = Vector2.Lerp(_scale, Vector2.One, t);
         
         wasOnGround = onGround;
         onGround = CollidesAt(0, 1);
+        jumpedThisFrame = false;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
